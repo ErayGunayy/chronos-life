@@ -1,0 +1,360 @@
+# Chronos — Project Guide for Claude Code
+
+> This file is the source of truth for how Claude Code should think about, design, and implement Chronos.
+> Read this before making product, design, or architecture decisions.
+> If code and this document disagree, this document wins until intentionally updated.
+
+---
+
+## 1. What Chronos Is
+
+Chronos is a **personal memory operating system** — not a to-do app, not a habit tracker, not a calendar, not a journal, not a chatbot, not a social network, not a gamification platform. It borrows ideas from all of them but exists for a different purpose.
+
+**Mission:** Chronos exists to become a person's trusted second memory. When people can't remember something about their own lives, Chronos should be the first place they think to look — not because it remembers better than they do, but because it remembers what they chose to preserve.
+
+**Core loop:**
+```
+Live → Remember → Reflect → Understand → Live Better
+```
+This loop has no finish line. Chronos is designed to grow more valuable for decades, not to be "completed."
+
+**The core insight driving v1:** People rarely notice how much of their day disappears into things they won't remember (scrolling, idle time, low-attention activity). Most products either track everything passively (creepy, surveillance-like) or ask people to log everything manually (too much friction, gets abandoned). Chronos instead lets people **tell their day naturally**, and lets the *gaps* in their own story reveal what they've forgotten — turning forgetting itself into the insight, without judgment.
+
+---
+
+## 2. Non-Negotiable Principles
+
+These override feature requests, growth pressure, and "best practices" from other products. When in doubt, re-derive the decision from these.
+
+1. **Understand before you improve.** Every feature must help people understand themselves first. Optimization without understanding creates pressure, not change.
+2. **Never judge.** No "good day" / "bad day" framing. Chronos reflects; the user decides what mattered.
+3. **Stories before timelines.** Capture is always natural language first. Structure is generated *from* the story, never demanded *before* it. `Story → AI understanding → Timeline`, never the reverse.
+4. **People's priorities change.** Never lock a user into an outdated version of themselves. Goals, identity, and what matters evolve — the product must evolve with them.
+5. **Technology should feel invisible.** Speaking should be easier than typing. Reviewing should be easier than remembering. Friction is the enemy.
+6. **Reflection over productivity.** The question is never "how much did I do today?" It's "what kind of life am I building?"
+7. **AI is a guide, never a judge.** AI notices patterns, asks thoughtful questions, offers perspective. It never shames, manipulates, or decides who someone is. The user defines themselves.
+8. **Memory is more valuable than metrics.** Numbers support memory; they are never the point.
+9. **Privacy is non-negotiable.** Not a feature — a responsibility. Users own, control, export, and can delete everything.
+10. **Build for decades.** Every decision should still make sense in 5, 10, 20 years. Design for a lifetime, not a trend cycle.
+11. **Help people see their journey.** Every feature should help answer: How have I changed? What matters most to me? What have I forgotten about myself?
+12. **Build with empathy.** There is a real, complicated person behind every timeline entry. Always choose empathy over efficiency, understanding over optimization.
+
+### The Chronos Test (apply before building anything)
+1. Does it help people understand themselves?
+2. Does it respect the user's changing life?
+3. Does it reduce effort instead of adding it?
+4. Does it avoid guilt and judgment?
+5. Does it protect privacy?
+6. Will this still make sense in ten years?
+
+If any answer is "no" — stop and rethink.
+
+---
+
+## 3. Anti-Goals (What We Will Never Build)
+
+These are permanent constraints, not current-roadmap opinions. Growth pressure will eventually push toward violating these — resist it.
+
+- **Never optimize for addiction.** No engagement-maximizing dark patterns, no infinite scroll, no artificial retention hooks. Success = value delivered, not minutes spent in-app.
+- **Never shame people.** No "You wasted your day," "You're falling behind," "You broke your streak." Ever.
+- **Never turn life into a competition.** No leaderboards, no public rankings, no social comparison metrics. There is no "streak" concept in this product.
+- **Never reduce a person to a number.** No Productivity Score, Life Score, Happiness Score. Numbers may support reflection; they never define a person.
+- **Never force consistency.** Missing a day is not failure. Users return exactly where they left off, without punishment or guilt.
+- **Never build for trend's sake.** Not every AI/social/viral feature belongs here. Every feature must trace back to the mission or it doesn't ship.
+- **Never sell attention.** Notifications exist to help, not to manipulate. Silence is often the correct choice.
+- **Never replace human reflection.** AI says "here's a pattern we noticed," never "you are this kind of person." The user always owns the interpretation.
+- **Never lock people in.** Export, leave, and keep-your-memories must always be trivially possible.
+- **Never monetize personal memories.** No selling personal data, no business model built on exploiting intimate information. Users are the customer, never the product.
+
+---
+
+## 4. Product Philosophy (condensed from full spec)
+
+- **Awareness before improvement** — understand how you're already living before being told how to live.
+- **Reflection before action** — most productivity apps plan tomorrow; Chronos first helps you understand today.
+- **Memory before metrics** — charts support stories, never replace them.
+- **Human before AI** — AI organizes; the user decides. Always.
+- **Life before productivity** — three hours with family can outweigh ten completed tasks. Chronos never assumes productivity = a meaningful life.
+- **Long-term thinking** — every feature should get *more* valuable over time. Time (not daily engagement) is the core asset.
+
+**Experience principles for every feature:**
+- Minimal friction (conversation over forms)
+- Immediate value (give before asking for more)
+- Long-term compounding (today's small memory may be priceless in ten years)
+- Human language in the UI (never "database/records/entries" — always "story/memory/reflection/chapter")
+- Calm technology (Chronos earns attention, never steals it)
+
+**AI behavior rules:**
+- May: organize memories, connect related events, suggest categories, summarize, detect trends, explain patterns, answer questions about recorded life, help reconstruct incomplete days.
+- Must never: invent memories, silently modify facts, auto-delete information, shame users, diagnose mental health, state predictions as certainty, or pretend to know what it doesn't.
+- Must always communicate uncertainty honestly ("I may be mistaken...", "I found two possible matches...").
+- User has final authority on every AI suggestion (categories, chapters, goal evolution) — AI proposes, user confirms.
+- Every meaningful AI action should be explainable in plain language.
+- AI-generated content is always visually distinguishable from what the user wrote themselves.
+
+---
+
+## 5. Core Systems (from the full product specification)
+
+These are the named subsystems that make up Chronos. Every one of them is generated *from* the same underlying data model — nothing should be built as a parallel, disconnected system. Treat this section as the architectural map before designing any new feature.
+
+### 5.1 LifeEvent — the fundamental domain object
+Chronos does not store "activities." It stores **LifeEvents** — the smallest meaningful unit of a person's lived experience (studying, having dinner, traveling, doing absolutely nothing — all equally valid). Every other system in Chronos (Living Ring, Timeline, Reflection, Search, Chapters, AI reasoning) is a view *over* LifeEvents, not an independent data store.
+
+**Properties every LifeEvent should satisfy:**
+- **Human** — reads like "Coffee with Sarah," never "Task #182" or "Session 34." Users never see database language.
+- **Temporal** — has a place in time, but precision is not required; Chronos accepts approximate durations and uncertainty.
+- **Editable** — time, title, notes, people, category can all be corrected later. Memories are living, not frozen.
+- **Searchable** — discoverable via natural language, never by remembering exact dates.
+- **Connected** — links to People, Places, Categories, Projects, Goals, Chapters, other LifeEvents. Chronos stores relationships, not isolated records.
+
+**Suggested fields:** Core (title, description, category, start/end/duration), Context (people, place, project, goal), Content (notes, voice transcript, AI summary, future attachments), Metadata (source, confidence score, created/updated timestamps).
+
+**Confidence:** Every extracted property (time, category, location) can carry a confidence score. High confidence → Chronos proceeds quietly. Low confidence → Chronos asks. Never pretend certainty that doesn't exist.
+
+**Ownership:** AI may organize, enrich, summarize, suggest — it may never silently rewrite personal history. Every meaningful modification stays transparent to the user.
+
+### 5.2 Living Ring — the visual identity of the product
+A ring visualization showing where time went for a selected period (Today / Week / Month / Year — Life view planned for later). Each segment = one category's share of time. This is the single most recognizable interface element in Chronos and should be treated as such in any design work.
+
+- **Explicitly free of gamification:** no streaks, levels, XP, achievements, or rankings on the ring. It visualizes reality; it does not gamify it.
+- **Unaccounted time is shown, not hidden** — displayed as "Still Unwritten" / "Missing Moments," inviting curiosity rather than implying failure.
+- **"Remembered %"** communicates memory coverage only (e.g., "72% Remembered") — never a judgment of how good the day was.
+- **Motion:** smooth, subtle, calming. Segments grow gently as memories are added. The ring never spins, flashes, or animates aggressively — calmness over excitement, always.
+- **Categories are fully user-customizable** (rename, merge, archive, create) — Chronos adapts to the person, never the reverse.
+- Tapping a segment navigates into the underlying Timeline entries, notes, people, and places for that category — it's a navigation surface, not just a static chart.
+- **Engineering implication:** the ring stores nothing of its own; it's 100% computed from LifeEvents, guaranteeing it can never drift out of sync with the rest of the app.
+
+### 5.3 Today's Story — the chronological narrative view
+Where the Living Ring answers "where did my time go," Today's Story answers "what actually happened." Each LifeEvent renders as a **Story Block** (time, title, category, optional notes/people/place/transcript/AI summary), read top to bottom like a modern journal — never like a spreadsheet or task list.
+
+- **Missing Moments render explicitly** in the flow (e.g., "13:00–15:00 — Still Unwritten — Looks like this part of today hasn't been recorded yet. [Continue Story]") — an invitation, never an accusation. This is the direct ancestor of the Forgotten Moments mechanic in §6.
+- Every block is fully editable (retime, rename, move, merge, split, delete) and remembers its **source** (Life Conversation, Quick Add, Manual Edit, AI Reconstruction, etc.) for transparency.
+- **Today's Reflection sits at the end of the story, after the last block** — the day closes with reflection, not a statistics screen.
+- Fully searchable at the block level (people, places, projects, categories, natural language).
+
+### 5.4 Life Conversation — the primary capture mechanism
+The main way people record their lives: describing the day naturally (voice, text, or mixed) instead of filling forms. Chronos listens and quietly converts narrative into structured LifeEvents in the background.
+
+**Supported conversation styles:**
+- **Instant Capture** — very short updates ("Gym for one hour.") → immediate LifeEvent, no friction.
+- **Partial Story** — user only remembers part of the day; the rest stays unwritten. Never forced to "complete" anything.
+- **End-of-Day Reflection** — the full day narrated at once; Chronos reconstructs the timeline automatically. (This is the primary mode the Forgotten Moments feature in §6 is built around.)
+- **Multi-Day Recall** — recording yesterday, last weekend, even last year. Memory isn't bound to "today."
+
+**Follow-up questions** are asked only when genuinely needed to resolve uncertainty (e.g., "About what time was that?") — never to interrupt narrative flow or perform routine data collection. Nothing becomes permanent without the user reviewing/approving the reconstructed day afterward.
+
+### 5.5 Reflection Engine — the emotional/intellectual core
+Generates reflections at four time scales — **Daily, Weekly, Monthly, Yearly** — each with a distinct purpose:
+- Daily: help understand today
+- Weekly: reveal short-term patterns
+- Monthly: show gradual change
+- Yearly: reveal long-term growth, told as a *story* of change, not just statistics
+
+**Reflection writing rules (apply to all AI-generated reflection copy, everywhere in the product):**
+1. **Observe before interpreting** — "You spent six evenings with family this week," never "You should study more."
+2. **Respect context** — if Family is a stated priority, family time is never implicitly framed as "unproductive."
+3. **Avoid guilt vocabulary entirely** — banned words: wasted, failed, lazy, disappointing. Preferred framing: "I noticed...", "It seems...", "Compared to...", "You may want to explore..."
+4. **Ask more than it tells** — "What made this week feel different?" outperforms unsolicited advice.
+5. **Tone = thoughtful friend**, not coach/manager/therapist: calm, humble, curious, encouraging. Openly hedges uncertainty ("It looks like...", "I may be wrong, but...").
+
+**Goal Awareness & Evolution:** users define what currently matters (e.g., "Graduate," "Spend more time with family"). These goals give reflection its interpretive context but are never obligations. Every few weeks, if behavior meaningfully diverges from stated goals, Chronos may gently ask whether priorities have shifted — it never silently updates goals on the user's behalf.
+
+**Engineering implication:** reflections are *regenerated interpretations*, not permanent records — if underlying LifeEvents change, reflections should be able to change too. LifeEvents are the source of truth; reflections are a derived, disposable layer on top.
+
+### 5.6 Memory Explorer — search as remembering, not querying
+Natural-language retrieval of moments, people, places, and periods — never keyword/document search. Example queries the system should just handle: *"When did I start learning Python?"*, *"What was I doing during exam week?"*, *"When was the last time I saw my grandparents?"*
+
+- **Semantic, not literal** — searching "Programming" should also surface "Coding," "Python," "Machine Learning" if conceptually related.
+- Results should feel like *memories*, not file listings (include time, Living Ring preview, related people/place, AI summary).
+- **Search confidence is communicated honestly** — "I found two possible memories from that period" beats false precision.
+- **Empty results are never framed as failure** — "That moment may never have been recorded" instead of "No Results Found."
+
+### 5.7 Life Chapters — meaningful eras, not folders
+Where LifeEvents describe moments, **Chapters describe eras** (e.g., "University Years," "First Internship," "The summer I lived in Antalya"). A chapter is never a manually-created folder or tag — it's discovered.
+
+- **Discovery signals:** recurring places/people/projects/categories, routine shifts, location changes, user-defined milestones. A single event never creates a chapter — chapters emerge from sustained patterns over weeks/months.
+- **Always suggested, never silently created:** *"It looks like the past four months have been centered around your internship. Would you like to group this into a Life Chapter?"* — user can accept, rename, merge, or ignore.
+- Each chapter aggregates its own Timeline, Living Ring, Reflections, Milestones, Relationships, and Projects — nothing is duplicated; it's a view over existing LifeEvents.
+- **Chapter Milestones** are auto-identified anchors within a chapter (first day, major transition, graduation, first release, etc.).
+- Chapters connect to each other chronologically (High School → University → Internship → First Job → Chronos), so life reads as one continuous journey.
+
+### 5.8 Home Experience (Dashboard) — "value before input"
+The core design law of the home screen: **users receive something meaningful before Chronos asks them for anything.** Six sections, always in this priority order:
+1. **Living Ring** — always the first visual element
+2. **Today's Reflection** — tone adapts by time of day (morning = gentle intention, afternoon = ongoing pattern observation, evening = reflection prompt)
+3. **Continue Your Story** — only appears if the day is genuinely incomplete; disappears on its own otherwise, never a nagging prompt
+4. **Memory Spotlight** — one resurfaced meaningful memory per day ("This day three years ago...")
+5. **Quick Capture** — voice / text / quick add — appears *after* value has already been delivered, and always feels optional
+6. **Today's Progress** — memory coverage %, explicitly not a productivity score
+
+**Notably absent by design:** anything about *tomorrow*. Chronos is about understanding the life already lived, not planning the life ahead — that's a deliberate exclusion, not an oversight.
+
+The dashboard personalizes over time (e.g., shifts prompt timing toward when a user naturally engages, promotes voice capture if that's the preferred input) — but adaptation must remain explainable, never a black box.
+
+### 5.9 Gentle Presence — notifications & widgets
+Governing rule: **attention is earned, never demanded.** Success is not measured by how often the app is opened.
+
+**Four notification types**, all non-urgent, all avoidable without penalty:
+- Gentle Reminders ("today still has a few unwritten moments")
+- Memory Moments ("this day, two years ago...")
+- Chapter Moments (observational, e.g. "you've now spent six months building Chronos" — never framed as an achievement/badge)
+- Reflection Invitations ("How was today?") — this is the canonical touchpoint the Forgotten Moments daily invite (§6.1) is built from
+
+**Frequency principle:** "One meaningful notification is worth more than ten ignored ones." Silence is an explicitly acceptable, often-correct product behavior — the system should default to sending nothing rather than sending something low-value. Timing should adapt to the individual's real routine rather than firing on a fixed global schedule.
+
+**Engineering implication:** every notification must be explainable after the fact — the system should always be able to answer "why did the user get this?"
+
+### 5.10 Personalization Engine
+Chronos becomes more personal with use, but strictly to **reduce friction and increase relevance** — never to predict or manipulate. Learns things like preferred recording time, voice-vs-text preference, reflection depth preference, and which memory themes (Family, Travel, Projects...) the user actually revisits.
+
+**Hard boundaries (personalization must never):**
+- manipulate emotions
+- change the interface unexpectedly
+- hide information
+- optimize for engagement
+- exploit behavioral patterns
+
+Every adaptation should be explainable ("why did this change?") — invisible adaptation still requires visible reasoning available to the user on request.
+
+### 5.11 Ownership & Longevity
+Chronos is designed to survive the product itself. Core commitments, treated as permanent constraints on any technical design:
+- **Full export** at any time, in durable formats (JSON, Markdown, PDF, Calendar, Personal Archive) — memories must stay readable *without* Chronos.
+- **Full, frictionless deletion** — individual events, entire days, chapters, or everything. No dark patterns, no artificial friction.
+- **Facts vs. interpretations vs. suggestions are always distinguishable** to the user — this transparency layering is a hard product requirement, not a nice-to-have.
+- **AI independence:** if AI models change or improve, previously recorded LifeEvents (facts) remain valid and unchanged — only *interpretations* may be regenerated. Facts never get silently rewritten by a model upgrade.
+- Every core data model should be versioned; migrations must never risk personal history. Treat user memories with at least the rigor of source code.
+
+### 5.12 Trust & AI Principles (facts vs. perspectives)
+Formalizes a layering that should show up in the actual data model, not just in copywriting:
+- **Facts** — objective, user-owned (time, place, person, duration, the recorded event itself). Foundation of the system, immutable.
+- **Perspectives** — AI-generated (reflections, trends, patterns, insights). Explicitly **suggestions, never truth** — always editable, replaceable, or regenerable without touching the underlying facts.
+
+AI responsibilities and limits (system-wide, not feature-specific):
+- **May:** organize memories, connect related events, suggest categories, summarize, detect trends, explain patterns, answer questions about recorded life, help reconstruct incomplete days.
+- **Must never:** invent memories, silently modify facts, auto-delete information, shame users, diagnose mental health, state predictions as certainty, or pretend to know what it doesn't.
+- **User authority is always final** — category suggestions, chapter suggestions, goal evolution all require explicit user confirmation. AI assists; it never takes control.
+- **Explainability is mandatory** — any meaningful AI action should be answerable with "because similar events have previously been categorized as Learning," not a black box.
+- Nothing AI-generated should ever appear as if the user wrote it themselves — always visually/contextually marked as AI-originated (summary, reflection, suggestion, generated story).
+
+---
+
+## 6. Designed Feature: Forgotten Moments (v0 core mechanic)
+
+This is the first concrete feature spec, designed to directly test the core hypothesis: *"Do people value having their forgotten time surfaced back to them, without judgment?"* It deliberately avoids passive tracking (screen time APIs, permissions, platform restrictions) and instead derives everything from the user's own natural-language account of their day.
+
+### 6.1 Trigger — the daily invite
+- **Frequency:** Exactly one notification per day. No second reminder. No "we missed you" messages. Missing a day has zero penalty and no streak concept exists.
+- **Timing:** Hybrid model.
+  - User picks their preferred time during onboarding (e.g., 21:00).
+  - AI silently observes actual response times. If the user consistently responds at a meaningfully different time for ~2 weeks, AI may ask **once**, gently: *"You usually reply around 22:00 — want me to move the reminder there?"* User decides; AI never silently changes it.
+- **Tone:** Same format every day (predictability builds trust). Content can lightly vary — sometimes a plain invite ("Want to talk about today?"), sometimes a thread from the previous day's conversation for continuity. Never gimmicky, never emoji-driven manipulation.
+
+### 6.2 Capture — the conversation
+- User describes their day in natural language (voice or text), uninterrupted. No mid-conversation interruptions to ask about gaps — that happens only at the end.
+- AI extracts events/activities and their approximate time ranges from the narrative as it's told.
+
+### 6.3 Gap detection
+- After the conversation ends, AI analyzes the described events and finds time gaps between them.
+- **Gaps under 1 hour:** treated as normal/routine (bathroom breaks, small errands, transitions). Rendered as neutral **gray** segments on the timeline. Never surfaced or questioned.
+- **Gaps of 1 hour or more:** flagged as a **Forgotten Moment**. Rendered as a **question-mark segment** on the timeline (not gray) — signals "this can still be filled in," inviting rather than accusatory.
+
+### 6.4 The invite to fill gaps
+- AI never interrogates gap-by-gap. All detected Forgotten Moments for that day are bundled into **one single, gentle invitation** at the end of the conversation, ordered starting with the longest gap.
+- Example tone: *"You've covered most of today — I didn't catch what happened between 13:00–15:00 or 19:00–20:00. Want to fill one in now, or come back to them later?"*
+- Control stays with the user: fill it in now, ask the AI to help reconstruct it, or leave it unfilled.
+- **"I don't remember" is a valid, complete outcome** — not an error state. It gets recorded as-is. The absence of memory is itself meaningful data, not a failure to fix.
+
+### 6.5 Forgotten Moment timeline representation
+- Stays marked with a question-mark indicator (not gray) even if never filled — because unlike routine gaps, this represents something that happened but wasn't remembered, and remains fillable retroactively (the user might recall it days later; that recall should be easy to add back).
+
+### 6.6 Pattern detection — the compounding layer
+Patterns are the mechanism that makes forgotten time *mean something* over time, not just a one-off log.
+
+**Weekly pattern (birth of a pattern):**
+- Requires a minimum of 7 days of data (a full week) before any pattern is calculated — never before. This prevents false-confidence patterns from small samples.
+- If a given time-of-day range (not specific days — the *hour range* is what matters, e.g. "15:00–16:00") appears as a Forgotten Moment in **≥50%** of the days with data that week → it becomes a **weekly pattern**.
+
+**Monthly promotion:**
+- Tracked across the last 4 weekly cycles.
+- If the same time-range pattern recurs in **≥75%** of those weeks (i.e., 3 of the last 4) → promoted to a **monthly pattern** ("a recurring pattern," not just a one-week blip).
+
+**Yearly promotion — "life theme":**
+- Tracked across the last 12 monthly cycles.
+- If the same pattern recurs in **≥75%** of those months (i.e., 9 of the last 12) → promoted to a **yearly "life theme."**
+- Thresholds intentionally get stricter at each level — a bigger claim requires stronger evidence. This also means reaching "life theme" status is rare and should feel meaningful to the user, not inflated.
+
+**Pattern identity:** Patterns are keyed by time-of-day range, not by specific weekday — what matters is *which part of the day* keeps disappearing, not which days of the week.
+
+**Surfacing patterns:**
+- Never shown mid-conversation or immediately upon detection — that would break the calm, uninterrupted capture flow and feel surveillance-like.
+- Shown only in dedicated **Weekly / Monthly / Yearly reflection views** — moments the user has already entered a "looking back" mindset, so a pattern feels like insight, not intrusion.
+- Tone is always observational, never diagnostic. Never: *"You're always distracted at 3pm."* Always: *"Over the last week, mid-afternoon around 15:00 has often gone unaccounted for — that seems to be a recurring gap for you. Curious what's usually happening there?"*
+- Never states a conclusion. Always ends with the question returned to the user — they own the interpretation, per Principle 7 and the AI Limitations rules in §4.
+
+### 6.7 Full v0 flow (reference)
+```
+Single daily invite (fixed time, fixed tone)
+        ↓
+User narrates their day naturally, uninterrupted
+        ↓
+AI detects gaps after the conversation ends
+        ↓
+Gaps < 1hr → gray, silent, routine
+Gaps ≥ 1hr → Forgotten Moment (question-mark)
+        ↓
+One bundled, gentle invitation (longest gap first)
+        ↓
+User fills it / AI helps reconstruct / left unfilled — all valid
+        ↓
+Weekly pattern (≥50%, min. 7 days of data)
+        ↓
+Monthly promotion (≥75% of last 4 weeks)
+        ↓
+Yearly "life theme" promotion (≥75% of last 12 months)
+        ↓
+Surfaced only in Weekly/Monthly/Yearly reflection views, always as an open question
+```
+
+### 6.8 Why this design (for future feature decisions, use this as the template)
+- Avoids passive tracking entirely (no Screen Time API, no permissions friction, no platform-specific limitations) — value is derived purely from the user's own account of their day.
+- "I don't remember" being a valid, non-error outcome is the actual point of the feature, not a failure mode — it's where the self-awareness the product is trying to build actually happens.
+- The escalating evidence thresholds (50% → 75% → 75%) encode "don't destroy trust with false confidence" directly into the mechanic, not just as a UI copy guideline.
+- The single bundled invite (vs. sequential gap-by-gap questioning) is what keeps the conversation feeling like being talked *with*, not interrogated.
+
+---
+
+## 7. Working Notes for Claude Code
+
+- When implementing anything, check it against §2 (Principles) and §3 (Anti-Goals) first. If a feature or copy choice violates either, flag it rather than silently building it.
+- Default to natural-language-first UX. If a feature seems to require the user to fill out a form or pick from rigid structured input where a conversational alternative is plausible, prefer the conversational alternative.
+- Any user-facing copy involving time, gaps, or reflection must follow the "observation, not verdict" tone shown in §5.5 (Reflection Engine rules) and §6.6 (Pattern surfacing) — no diagnostic or judgmental phrasing, ever end on a question that returns interpretation to the user.
+- No streaks, no leaderboards, no engagement-maximizing notification patterns — these are permanently out of scope, not just deferred.
+- Every feature should be understood as a view over LifeEvents (§5.1) wherever possible — avoid creating parallel data models for new features unless a LifeEvent-based approach genuinely can't express it.
+- This document will grow as more features are designed together. Treat it as living — update it rather than letting design decisions live only in chat history.
+
+---
+
+## 8. Tech Stack & Architecture Decisions (v0)
+
+> Recorded 2026-07-02, when Forgotten Moments v0 implementation began. This is the durable home for the stack/architecture choices that used to live in the (now-removed) `README.md`. Update it as decisions change — it is part of the source of truth now.
+
+### Confirmed stack
+- **Frontend:** Next.js (App Router) · React · TypeScript · Tailwind CSS · shadcn/ui
+- **Backend / persistence:** Supabase · PostgreSQL (Row Level Security on from day one; single-user in v0)
+- **AI:** Anthropic Claude via the Anthropic API. Extraction sits behind a `LifeEventExtractor` interface so the model is swappable; multi-model (incl. OpenAI) stays a *planned* option, not a v0 dependency. Default model: Claude Sonnet 5, configurable.
+- **Mobile:** React Native (planned, later — voice capture, home-screen widgets, and push notifications per §5.9 live there).
+- **Tooling:** pnpm · Vitest (unit/integration) · Playwright (E2E + visual regression).
+
+### Architecture principles (v0)
+- **Layered, framework-agnostic core.** `src/domain/*` is pure TypeScript (no framework/AI/DB imports) and holds the heart of the product: gap detection, the pattern engine, invite building, the tone guardrail. AI, data, and UI all depend inward on it. This is how "build for decades" (§10) becomes concrete — the core outlives any framework.
+- **Everything is a view over LifeEvents (§5.1).** No parallel data stores. Timeline, Forgotten Moments, patterns, and "Remembered %" are all *computed* from the same `LifeEvent[]`.
+- **Gaps are computed, never stored.** Routine gaps (<1h) and Forgotten Moments (≥1h) are derived on the fly from the ordered events of a day; nothing gap-related is persisted. Pattern history is recomputed from events too. This guarantees the timeline can never drift out of sync (§5.2).
+- **Facts vs. Perspectives are separated in the schema (§5.11 / §5.12).** User-authored facts live in `life_events`; AI output (summaries, patterns, reflections) lives in `perspectives`. A model upgrade may regenerate *perspectives* but must never rewrite a *fact*.
+- **"I don't remember" is a real record, not an error (§6.4).** Filling a gap → a substantive `LifeEvent`. Saying "I don't remember" → a `LifeEvent` with `kind: 'unremembered'`: it still shows a question-mark (§6.5), still counts as forgotten for pattern detection, but is no longer re-surfaced in the invite.
+- **Nothing AI-extracted persists without user review (§5.4 / §5.12).** Capture → AI candidate events → user reviews/edits/confirms → persist. AI-authored content is always visually marked as AI.
+- **Time model.** Store a UTC instant + IANA timezone. A "day" = the user's local calendar day; gaps are computed only *between* the first and last recorded event of that day (so unnarrated sleep/night is never flagged as forgotten). Patterns are keyed by **hour-of-day bucket** (§6.6), not by weekday.
+- **Ownership primitives are first-class (§5.11).** Export (JSON + Markdown in v0) and real deletion (event / day / everything) are built at the data layer, not bolted on afterward.
+
+### Living plan
+Active implementation plan: `.claude/plans/forgotten-moments-v0.plan.md`.
