@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import type { CaptureResponse } from '@/app/api/capture/handler';
@@ -78,8 +79,15 @@ export function TodayApp() {
             {formatDateHeading(localDate)}
           </h1>
         </div>
-        <nav aria-label="Your memories" className="text-right text-xs text-muted">
-          <p className="mb-1">Your memories are yours:</p>
+        <nav aria-label="Chronos" className="text-right text-xs text-muted">
+          <p className="mb-1">
+            <Link
+              className="underline decoration-line underline-offset-2 hover:text-accent"
+              href="/reflections/weekly"
+            >
+              This week
+            </Link>
+          </p>
           <p>
             <a className="underline decoration-line underline-offset-2 hover:text-accent" href="/api/export?format=markdown">
               export Markdown
