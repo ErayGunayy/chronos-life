@@ -43,3 +43,6 @@ next-env.d.ts
 
 # claude code local settings (personal, not shared)
 .claude/settings.local.json
+
+# local memory store (dev persistence until Supabase)
+.chronos-data/

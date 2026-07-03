@@ -48,6 +48,11 @@ export class InMemoryLifeEventRepository implements LifeEventRepository {
     return removed;
   }
 
+  /** Every stored event, all users, sorted — the persistence hook for file-backed wrappers. */
+  snapshot(): LifeEvent[] {
+    return this.sorted(() => true);
+  }
+
   private sorted(keep: (event: LifeEvent) => boolean): LifeEvent[] {
     return [...this.events.values()]
       .filter(keep)
