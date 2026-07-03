@@ -96,4 +96,45 @@ describe('JsonFileLifeEventRepository', () => {
       /refusing/i,
     );
   });
+
+  test('concurrent saves on a cold repository both persist — no silent loss', async () => {
+    const file = tempFile();
+    const repo = new JsonFileLifeEventRepository(file);
+    const a = makeEvent();
+    const b = makeEvent();
+
+    await Promise.all([repo.save(a), repo.save(b)]);
+
+    const reopened = new JsonFileLifeEventRepository(file);
+    const stored = await reopened.listAll('user-1');
+    expect(stored.map((event) => event.id).sort()).toEqual([a.id, b.id].sort());
+  });
+
+  test('20 concurrent saves all resolve and all land on disk', async () => {
+    const file = tempFile();
+    const repo = new JsonFileLifeEventRepository(file);
+    const events = Array.from({ length: 20 }, () => makeEvent());
+
+    await Promise.all(events.map((event) => repo.save(event)));
+
+    const reopened = new JsonFileLifeEventRepository(file);
+    expect(await reopened.listAll('user-1')).toHaveLength(20);
+  });
+
+  test('a save racing a delete stays serialized and consistent', async () => {
+    const file = tempFile();
+    const repo = new JsonFileLifeEventRepository(file);
+    const existing = makeEvent();
+    await repo.save(existing);
+    const incoming = makeEvent();
+
+    const [, deleted] = await Promise.all([
+      repo.save(incoming),
+      repo.deleteById(existing.userId, existing.id),
+    ]);
+
+    expect(deleted).toBe(true);
+    const stored = await new JsonFileLifeEventRepository(file).listAll('user-1');
+    expect(stored.map((event) => event.id)).toEqual([incoming.id]);
+  });
 });

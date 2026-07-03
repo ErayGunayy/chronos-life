@@ -56,6 +56,9 @@ function utcInstantOfLocalWallClock(
   const [year, month, day] = localDate.split('-').map(Number);
   const targetWallMs = Date.UTC(year, month - 1, day, hour, minute, 0);
 
+  // A wall-clock time skipped by spring-forward (e.g. 02:30 on a US DST day)
+  // has no exact instant; the loop then settles on the equivalent instant
+  // after the jump (02:30 → 03:30) instead of failing.
   let guessMs = targetWallMs;
   for (let pass = 0; pass < MAX_OFFSET_CONVERGENCE_PASSES; pass += 1) {
     const wallMs = wallClockAsUtcMs(guessMs, timeZone);

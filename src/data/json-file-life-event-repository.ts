@@ -1,4 +1,5 @@
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { InMemoryLifeEventRepository } from '@/data/in-memory-life-event-repository';
@@ -9,19 +10,27 @@ const FILE_SCHEMA_VERSION = 1;
 
 /**
  * File-backed repository for local dev until Supabase is provisioned
- * (CLAUDE.md §8). Durability rules follow §5.11: writes are atomic
- * (tmp + rename), and an unreadable file throws loudly — this code will
- * never silently reset someone's personal history.
+ * (CLAUDE.md §8). Durability rules follow §5.11:
+ *
+ * - the first disk load is memoized, so concurrent callers share one store;
+ * - every mutation (save/delete) runs through a single write queue — mutate
+ *   and persist are serialized, so a resolved save() is truly on disk;
+ * - writes are atomic (unique tmp file + rename) and an unreadable file
+ *   throws loudly — this code never silently resets personal history.
+ *
+ * Scope limit: one server process per data file. Multiple processes writing
+ * the same file would last-write-win whole files; that is what the Supabase
+ * repository is for.
  */
 export class JsonFileLifeEventRepository implements LifeEventRepository {
   private inner: InMemoryLifeEventRepository | null = null;
+  private loadPromise: Promise<InMemoryLifeEventRepository> | null = null;
+  private writeQueue: Promise<unknown> = Promise.resolve();
 
   constructor(private readonly filePath: string) {}
 
   async save(event: LifeEvent): Promise<void> {
-    const inner = await this.ensureLoaded();
-    await inner.save(event);
-    await this.persist(inner);
+    await this.enqueueMutation((inner) => inner.save(event));
   }
 
   async getById(userId: string, id: string): Promise<LifeEvent | null> {
@@ -37,22 +46,45 @@ export class JsonFileLifeEventRepository implements LifeEventRepository {
   }
 
   async deleteById(userId: string, id: string): Promise<boolean> {
-    const inner = await this.ensureLoaded();
-    const removed = await inner.deleteById(userId, id);
-    if (removed) await this.persist(inner);
-    return removed;
+    return this.enqueueMutation((inner) => inner.deleteById(userId, id));
   }
 
   async deleteAll(userId: string): Promise<number> {
-    const inner = await this.ensureLoaded();
-    const removed = await inner.deleteAll(userId);
-    if (removed > 0) await this.persist(inner);
-    return removed;
+    return this.enqueueMutation((inner) => inner.deleteAll(userId));
   }
 
-  private async ensureLoaded(): Promise<InMemoryLifeEventRepository> {
-    if (this.inner) return this.inner;
+  /** Mutations run strictly one at a time: load → mutate → persist. */
+  private enqueueMutation<T>(
+    mutate: (inner: InMemoryLifeEventRepository) => Promise<T>,
+  ): Promise<T> {
+    const run = this.writeQueue.then(async () => {
+      const inner = await this.ensureLoaded();
+      const result = await mutate(inner);
+      await this.persist(inner);
+      return result;
+    });
+    // Keep the queue alive even when an operation rejects; the caller
+    // still receives the rejection through `run`.
+    this.writeQueue = run.catch(() => undefined);
+    return run;
+  }
 
+  private ensureLoaded(): Promise<InMemoryLifeEventRepository> {
+    if (this.inner) return Promise.resolve(this.inner);
+    this.loadPromise ??= this.loadFromDisk().then(
+      (inner) => {
+        this.inner = inner;
+        return inner;
+      },
+      (error: unknown) => {
+        this.loadPromise = null;
+        throw error;
+      },
+    );
+    return this.loadPromise;
+  }
+
+  private async loadFromDisk(): Promise<InMemoryLifeEventRepository> {
     const inner = new InMemoryLifeEventRepository();
     let raw: string | null = null;
     try {
@@ -62,13 +94,10 @@ export class JsonFileLifeEventRepository implements LifeEventRepository {
     }
 
     if (raw !== null) {
-      const parsed = parseStoreFile(raw, this.filePath);
-      for (const event of parsed) {
+      for (const event of parseStoreFile(raw, this.filePath)) {
         await inner.save(event);
       }
     }
-
-    this.inner = inner;
     return inner;
   }
 
@@ -79,9 +108,14 @@ export class JsonFileLifeEventRepository implements LifeEventRepository {
       2,
     );
     await mkdir(path.dirname(this.filePath), { recursive: true });
-    const tmpPath = `${this.filePath}.tmp`;
-    await writeFile(tmpPath, payload, 'utf8');
-    await rename(tmpPath, this.filePath);
+    const tmpPath = `${this.filePath}.${randomUUID()}.tmp`;
+    try {
+      await writeFile(tmpPath, payload, 'utf8');
+      await rename(tmpPath, this.filePath);
+    } catch (error) {
+      await rm(tmpPath, { force: true }).catch(() => undefined);
+      throw error;
+    }
   }
 }
 

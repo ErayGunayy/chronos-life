@@ -46,8 +46,10 @@ export interface CommitResponse {
 
 /**
  * The only door through which memories become permanent (§5.4): everything
- * arriving here has been reviewed by the user. The commit is atomic — every
- * memory validates before anything is saved.
+ * arriving here has been reviewed by the user. Every memory validates before
+ * anything is saved; if the save phase itself fails partway, already-saved
+ * memories from this commit are rolled back (best effort) so the caller can
+ * trust "nothing was kept" and simply retry.
  */
 export async function handleCommitMemories(
   body: unknown,
@@ -111,8 +113,23 @@ export async function handleCommitMemories(
     }
   }
 
-  for (const event of events) {
-    await repository.save(event);
+  const savedIds: string[] = [];
+  try {
+    for (const event of events) {
+      await repository.save(event);
+      savedIds.push(event.id);
+    }
+  } catch (error) {
+    console.error('memory commit failed mid-save; rolling back', error);
+    await Promise.all(
+      savedIds.map((id) => repository.deleteById(userId, id).catch(() => undefined)),
+    );
+    return {
+      status: 500,
+      body: fail(
+        'Your memories could not be kept just now — nothing from this commit was saved. Please try again.',
+      ),
+    };
   }
 
   return { status: 200, body: ok({ ids: events.map((event) => event.id) }) };

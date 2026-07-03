@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { CaptureResponse } from '@/app/api/capture/handler';
 import type { DayResponse } from '@/app/api/day/handler';
@@ -24,14 +24,21 @@ export function TodayApp() {
   const [review, setReview] = useState<CaptureResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Latest-wins guard: overlapping refreshes must not let a stale day
+  // overwrite a fresher one.
+  const refreshSequence = useRef(0);
+
   const refreshDay = useCallback(
     async (nextView?: View) => {
+      const sequence = ++refreshSequence.current;
       try {
         const loaded = await fetchDay(localDate, timezone);
+        if (sequence !== refreshSequence.current) return;
         setDay(loaded);
         setError(null);
         setView(nextView ?? (loaded.segments.length === 0 ? 'capture' : 'story'));
       } catch (cause) {
+        if (sequence !== refreshSequence.current) return;
         setError(cause instanceof Error ? cause.message : 'Something went wrong.');
         setView('capture');
       }

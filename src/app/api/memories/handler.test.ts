@@ -153,4 +153,32 @@ describe('handleCommitMemories', () => {
 
     expect(status).toBe(400);
   });
+
+  test('a save failure mid-commit rolls back and reports that nothing was kept', async () => {
+    class FailingRepo extends InMemoryLifeEventRepository {
+      private saveCalls = 0;
+      override async save(event: Parameters<InMemoryLifeEventRepository['save']>[0]) {
+        this.saveCalls += 1;
+        if (this.saveCalls === 2) throw new Error('disk full');
+        return super.save(event);
+      }
+    }
+    const repo = new FailingRepo();
+
+    const { status, body } = await handleCommitMemories(
+      {
+        ...base,
+        memories: [
+          { title: 'First', startLocalTime: '09:00', endLocalTime: '10:00' },
+          { title: 'Second', startLocalTime: '11:00', endLocalTime: '12:00' },
+        ],
+      },
+      repo,
+      USER,
+    );
+
+    expect(status).toBe(500);
+    expect(body.error).toContain('nothing from this commit');
+    expect(await repo.listAll(USER)).toEqual([]);
+  });
 });
