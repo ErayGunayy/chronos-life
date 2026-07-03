@@ -125,6 +125,43 @@ A ring visualization showing where time went for a selected period (Today / Week
 - Tapping a segment navigates into the underlying Timeline entries, notes, people, and places for that category — it's a navigation surface, not just a static chart.
 - **Engineering implication:** the ring stores nothing of its own; it's 100% computed from LifeEvents, guaranteeing it can never drift out of sync with the rest of the app.
 
+#### 5.2.1 Two gap states on the ring (designed alongside Forgotten Moments, §6)
+The ring must visually distinguish the two gap types defined in the Forgotten Moments spec — this distinction is a core product feature, not an edge case, so it must survive into the ring's visual language, not just the timeline view.
+
+- **Short gaps (< 1 hour, routine):** rendered as a neutral, silent, solid-fill segment in a dark neutral tone (no category color, no border, no animation). Reads as "an unremarkable pause" — never draws the eye.
+- **Forgotten Moments (≥ 1 hour):** rendered as a **dashed-outline arc with no fill** (transparent), using a warm neutral accent distinct from category colors. Carries a **slow "breathing" animation**: opacity oscillates roughly 22%→55%→22% and stroke-width oscillates subtly (e.g. 11px→14px→11px) on a ~4.5s ease-in-out loop. This stays consistent with the "never spins, flashes, or animates aggressively" rule — the motion is slow and ambient, not attention-grabbing. Purpose: signal "this is still open and fillable," never "you failed to log this."
+- These two states must use visually distinct treatments (fill vs. dashed-outline-only) at all zoom levels/time periods, not just in the Today view — a Forgotten Moment should never be visually confusable with a routine gap.
+
+#### 5.2.2 Interaction: tapping a Forgotten Moment segment
+Because the segment's position on the ring already communicates *which hour range* is missing, tapping it is an unambiguous signal of intent to fill it in — no separate "are you sure" or "not now" affordance is needed; standard overlay-dismiss (tap outside / close) is sufficient.
+
+Flow:
+1. User taps a breathing/dashed segment.
+2. A small, lightweight conversational overlay opens near the ring (not a full-screen takeover, not a form) — e.g. *"13:00–15:00 arası neredeydin?"*
+3. User responds via voice or text, same as any other Life Conversation input (this reuses the existing "Instant Capture" conversation style from §5.4 — no new capture mechanism is introduced).
+4. AI processes the response, creates/updates the corresponding LifeEvent. The ring itself never stores this answer — it only re-renders once the underlying LifeEvent changes, preserving the "AI never modifies the Living Ring directly" rule (§5.12).
+5. If the user dismisses without answering, nothing happens — the segment simply remains a Forgotten Moment, answerable again later.
+
+#### 5.2.3 Segment ordering & color system
+**Ordering is dynamic, position is not sacred.** Segments (including gap segments) are sorted **largest to smallest by duration**, starting at the 12 o'clock position and proceeding clockwise. This is a deliberate choice over a fixed per-category position: the goal is that the single biggest thing the user's time went to today is always the most visually prominent segment, with zero reading effort — directly serving the "awareness within seconds" and Reflection-Over-Productivity principles. The tradeoff (segment positions move day to day) is accepted; recognizability is carried by color, not position (see below). Large Forgotten Moments participate in this ordering too — an unusually large unaccounted block should be exactly as visually prominent as a large category would be, not hidden at a fixed low-priority position.
+
+**Color is fixed per category, independent of position.** Once a category is assigned a color, that color never changes as segment order shifts day to day — this is what keeps the ring readable despite dynamic ordering; the user learns "blue = Learning" once and it holds regardless of where the blue segment sits that day.
+
+**Default palette:**
+- New categories draw from a predefined default palette in creation order (1st category → palette color 1, 2nd → color 2, etc.) — never random, so early behavior is predictable and reproducible.
+- Default palette should contain roughly **8–10 colors**, sized for realistic category counts (Learning, Health, Family, Work, Social, Entertainment, Projects, etc.). Categories beyond the palette size get tonal variations (lighter/darker shades) rather than expanding into visually-similar hues.
+- Because ordering is dynamic, **any two colors in the palette may end up adjacent on any given day** — unlike a fixed-position ring, adjacent-pair contrast alone isn't sufficient. Every color in the default palette must be mutually distinguishable from every other color, not just its usual neighbors.
+- Palette must account for color-blindness (most commonly red-green) — avoid relying on hue alone between colors that collide under common color-vision deficiencies; vary lightness/saturation as a second distinguishing channel, not just hue.
+
+**User customization + collision guidance:** users remain free to fully customize category colors (per the existing customization rule in §5.2). If a user picks a color very close to an existing category's color, Chronos should show a **gentle, non-blocking warning** (e.g., "This color is very close to Health's — they may be hard to tell apart") — informational only, never prevented. This preserves "Chronos adapts to people" while still supporting usability; the user always keeps final say.
+
+#### 5.2.4 Week / Month / Year views
+The ring keeps the exact same logic across all time windows — it does not become a different visualization at larger scales. Switching from Today to Week/Month/Year simply widens the aggregation window; category segments still represent **summed duration** for that category across the whole period (e.g., "12 hours Learning this week"), sorted largest-to-smallest per §5.2.3, with the same fixed per-category colors.
+
+**Forgotten Moments at aggregate scale:** a week/month/year necessarily contains multiple, separate Forgotten Moment gaps (e.g., Monday 14:00–15:00, Wednesday 19:00–21:00, Friday 10:00–11:00). These are combined into a **single breathing/dashed segment** on the ring representing the total unaccounted duration for the period — the ring never tries to render each individual gap as its own arc at this scale. Tapping this aggregate segment does **not** open the Today-style single-question micro-dialog (§5.2.2) — at this scale there are multiple unrelated gaps, so a single question doesn't make sense. Instead, tapping navigates into Today's Story / Timeline, where the individual underlying gaps are listed and can be addressed one at a time.
+
+**Patterns stay out of the ring.** Weekly/Monthly/Yearly pattern detection (§6.6, the "recurring 15:00 gap" mechanic) is deliberately **not** surfaced on the ring itself — patterns remain exclusive to the dedicated Weekly/Monthly/Yearly Reflection views. The ring stays a pure, fact-only visualization of recorded duration (Facts, per §5.12); pattern commentary is an AI-generated *interpretation* (Perspective) and belongs in Reflection, not layered onto the ring. This keeps the ring's role consistent and unambiguous at every zoom level: it shows what happened, never what it might mean.
+
 ### 5.3 Today's Story — the chronological narrative view
 Where the Living Ring answers "where did my time go," Today's Story answers "what actually happened." Each LifeEvent renders as a **Story Block** (time, title, category, optional notes/people/place/transcript/AI summary), read top to bottom like a modern journal — never like a spreadsheet or task list.
 
@@ -170,6 +207,27 @@ Natural-language retrieval of moments, people, places, and periods — never key
 - **Search confidence is communicated honestly** — "I found two possible memories from that period" beats false precision.
 - **Empty results are never framed as failure** — "That moment may never have been recorded" instead of "No Results Found."
 
+#### 5.6.1 Search results and the Forgotten Moments bridge
+When a search resolves to a time range, Memory Explorer must distinguish between three distinct states, not just "found" vs. "not found":
+- **Never narrated at all** — no conversation ever covered that period; Chronos has no awareness of it. Result: the standard neutral empty state (§5.6's existing "That moment may never have been recorded" copy).
+- **Known Forgotten Moment, still unfilled** — the period was already flagged as a gap (§6.3) but hasn't been answered yet. Result: Memory Explorer explicitly surfaces this as a recognized, already-tracked gap rather than a generic empty result — e.g., *"I don't have a record for that time — it's actually a moment we noticed earlier that hasn't been filled in yet. Want to try remembering it now?"* — and offers the same fill-in interaction used elsewhere (reuses the Life Conversation capture flow, §5.4, no new mechanism).
+- **Recorded** — normal search result, rendered per §5.6's existing rules.
+
+This makes Memory Explorer a **second entry point** into resolving Forgotten Moments (alongside the ring's tap-to-fill in §5.2.2 and the end-of-conversation bundled invite in §6.4) rather than a wholly separate system — the same underlying gap data just becomes reachable from wherever the user happens to be looking for it. It also reinforces the product's core intent in a second, complementary direction: where Forgotten Moments proactively surfaces the past, this makes the *consequence* of not narrating visible exactly when someone goes looking for that past — a natural nudge toward paying closer attention to the present, without ever saying so explicitly or judgmentally.
+
+#### 5.6.2 Semantic matching mechanism
+"Semantic, not literal" matching (§5.6's existing rule — e.g., "Programming" surfacing "Coding," "Python," "Machine Learning") is powered by two complementary signals, not one:
+
+- **Primary: embedding/semantic similarity.** Works regardless of how (or whether) the user has organized categories — a brand-new user with zero customization still gets meaningful semantic matches, since this doesn't depend on any user-built structure existing yet.
+- **Secondary, boosting signal: the user's own category structure** (§5.2's customizable categories). When LifeEvents already share a user-defined category or sub-grouping (e.g., "Python" and "Machine Learning" both filed under a "Programming" category), that shared structure boosts relevance for related searches on top of the semantic baseline — rewarding a user's own organization rather than ignoring it.
+
+Together these mean search quality doesn't depend on the user having organized anything (semantic similarity always works), but improves further as their own categorization becomes richer (their structure adds a personalized relevance boost on top).
+
+#### 5.6.3 Result ranking
+Ranking uses two signals only — **relevance** (from §5.6.2's semantic + category-boost score) and **temporal proximity** (how close a result is to any time expression present in the query) — combined based on what the query itself contains: a purely conceptual/thematic query ("times I felt overwhelmed") ranks primarily by relevance; a query containing a time expression ("last summer," "exam week") weights temporal proximity more heavily; a query with both ("where was I in Istanbul last summer") blends the two.
+
+**Deliberately excluded: any "emotional richness" or content-length signal** (e.g., ranking a long, detailed entry above a short one on the assumption the longer entry is more significant). This was considered and rejected — it would mean the system is implicitly deciding which memories matter more, which directly conflicts with Principle 2, "Never Judge" (§2): a terse "Went to the hospital today" can matter far more than a long, detailed walk-in-the-park entry, and Chronos has no basis for guessing which is which. Ranking stays confined to signals that describe *how well a result matches the query*, never *how important the result seems*.
+
 ### 5.7 Life Chapters — meaningful eras, not folders
 Where LifeEvents describe moments, **Chapters describe eras** (e.g., "University Years," "First Internship," "The summer I lived in Antalya"). A chapter is never a manually-created folder or tag — it's discovered.
 
@@ -178,6 +236,24 @@ Where LifeEvents describe moments, **Chapters describe eras** (e.g., "University
 - Each chapter aggregates its own Timeline, Living Ring, Reflections, Milestones, Relationships, and Projects — nothing is duplicated; it's a view over existing LifeEvents.
 - **Chapter Milestones** are auto-identified anchors within a chapter (first day, major transition, graduation, first release, etc.).
 - Chapters connect to each other chronologically (High School → University → Internship → First Job → Chronos), so life reads as one continuous journey.
+
+#### 5.7.1 Chapter suggestion threshold
+Reuses the same evidence-based-promotion logic already established for Forgotten Moments patterns (§6.6) rather than inventing a separate threshold model — keeps the "don't claim a pattern without enough evidence" principle consistent across the whole product.
+
+- **Minimum window:** at least **6 weeks** of data must exist before a chapter can be suggested at all — chapters are a bigger, more permanent-feeling claim than a weekly pattern, so the minimum observation window is longer than the 7-day minimum used for Forgotten Moments patterns.
+- **Threshold:** within that window, the same theme (place, person, project, or category) must be dominant on **≥75%** of days — matching the strictest tier already used for Forgotten Moments' yearly "life theme" promotion (§6.6), since a chapter is a comparably strong, lasting claim about someone's life.
+- As with all pattern-based suggestions in Chronos, this only ever produces a **suggestion** — "It looks like the past six weeks have been centered around your internship. Would you like to group this into a Life Chapter?" — never an auto-created chapter (§5.7's existing rule).
+
+**Overlapping chapters are independent, never merged.** When multiple themes cross the threshold in the same window (e.g., a new city *and* a new relationship starting around the same time), each is suggested as its **own separate chapter** rather than being combined into one. This is a deliberate choice, not just a simplicity shortcut: chapters have independent lifecycles — "Living in Istanbul" might last three years while "Relationship with X" lasts eight months, and their start dates coinciding is coincidental, not causal. Merging them would break the moment their lifecycles diverge (e.g., the relationship ending would incorrectly appear to end the city chapter too, or vice versa). Multiple chapters can be active/overlapping at once; the user can always manually merge two chapters later if they genuinely want to (per §5.7's existing accept/rename/merge/ignore options), but Chronos itself never assumes two co-occurring themes are the same story.
+
+#### 5.7.2 Chapter closing
+Endings are treated as symmetrically important as beginnings, and reuse the same evidence model rather than inventing a separate one. A chapter is suggested as **complete** when its dominant theme (place/person/project/category) **drops below 25%** of days over the same 6-week evaluation window used for opening a chapter (§5.7.1) — the inverse of the ≥75% threshold that opens it. This mirrors real life directly: when a chapter genuinely ends (e.g., moving from Istanbul to Izmir), nearly everything tied to it — neighborhoods, commute patterns, routines, the people seen day to day — actually does drop away at once, so a sharp decline is a meaningful signal, not noise.
+
+**Closing date is anchored to the real-world event, not the detection moment.** Because the system only confirms a decline after the 6-week window has played out, there's an inherent lag between the actual life change and Chronos noticing it. Rather than dating the chapter's end to whenever the system happened to detect it:
+- If a relevant **Chapter Milestone** (§5.7) already exists in that period (e.g., a "Moved to Izmir" LifeEvent), that real event's date is used as the chapter's actual end date.
+- If no such milestone exists, the start of the declining window is used as a default end date — and, like every AI-derived date/fact in Chronos, it remains user-editable/correctable.
+
+**Closing is a suggestion, never automatic** — consistent with how chapters open (§5.7.1): *"Istanbul doesn't look like it's been part of your daily life for the last six weeks — should we mark 'Living in Istanbul' as complete as of [date]?"* The user accepts, adjusts the date, or dismisses it.
 
 ### 5.8 Home Experience (Dashboard) — "value before input"
 The core design law of the home screen: **users receive something meaningful before Chronos asks them for anything.** Six sections, always in this priority order:
@@ -191,6 +267,40 @@ The core design law of the home screen: **users receive something meaningful bef
 **Notably absent by design:** anything about *tomorrow*. Chronos is about understanding the life already lived, not planning the life ahead — that's a deliberate exclusion, not an oversight.
 
 The dashboard personalizes over time (e.g., shifts prompt timing toward when a user naturally engages, promotes voice capture if that's the preferred input) — but adaptation must remain explainable, never a black box.
+
+#### 5.8.1 Evening invite → Home flow (resolves the overlap with §6.1's daily notification)
+Tapping the daily evening notification (§6.1) does **not** drop the user straight into conversation, and does not require an extra manual step to reach the conversation either — it opens **Home already in its evening state** (per the existing adaptive-Home behavior above: Reflection, Memory Session, Missing Moments surface at this time of day). Today's Reflection is already the topmost, most prominent element, already carrying the day's invitation (e.g., "Bugünü konuşalım mı?") — so starting the conversation is still effectively one tap, but the Living Ring and any Memory Spotlight are seen first. This preserves "value before input" (§5.8's core law) without adding real friction, since the invite-to-start distance stays the same as a direct deep-link would have been.
+
+**Day-1 / empty-state behavior requires no special-casing.** Because every Home section already disappears or adapts gracefully when it has nothing to show (§5.8's per-section empty-state design), a brand-new user's Home naturally resolves itself:
+- Living Ring shows existing empty-state copy ("Your story hasn't started yet" / "Today is still waiting to be remembered") rather than looking broken.
+- Memory Spotlight has nothing to resurface yet, so the section simply doesn't render — same rule as "Continue Your Story" disappearing when the day is already complete.
+- Today's Reflection still occupies its normal top position and still carries an invitation, but its tone shifts from retrospective ("here's what I noticed") to initiating ("Bugün başlasın mı?") — the section's *position and role* don't change, only the copy adapts to having no history yet.
+
+No separate "Day 1 mode" needs to be designed or built — this falls out naturally from the existing per-section empty-state rules already defined for Home.
+
+#### 5.8.2 Memory Spotlight — selection logic
+Memory Spotlight's content is deliberately weighted toward **process and continuity**, not toward resurfacing arbitrary past events. Chronos records a person's life without judgment (§2, Principle 2), which means it inevitably also stores difficult periods — an unweighted "on this day..." mechanic risks surfacing something painful without warning. Rather than solving this with an explicit "mark as sensitive" flagging system (rejected — it works against the spirit of recording lived process rather than curating a highlight reel), the fix is structural: bias the candidate pool itself toward inherently low-risk content — beginnings and continuity — rather than raw individual events.
+
+**Candidate pool, in priority order (highest wins if multiple qualify on a given day):**
+1. **Chapter Milestones** (§5.7) — "First day," "major transition," and similar milestones the Life Chapters system already identifies. Highest priority since these are already-vetted, structurally significant anchors.
+2. **Continuity/progress markers** — derived from a category or project's *sustained duration* rather than a single LifeEvent (e.g., "It's been exactly one year since you started learning Python," "100 days building Chronos"). These emerge from tracking how long a theme has continuously appeared, not from any one day's content.
+3. **Simple anniversary** ("On this day, N years ago...") — lowest priority, a fallback only used when neither of the above produces a candidate for that day.
+
+If no candidate exists at all for a given day, the Memory Spotlight section simply doesn't render (consistent with Home's general empty-state rule, §5.8.1).
+
+#### 5.8.3 Quick Capture — voice vs. text default
+**Default is voice-first, text-secondary.** This follows directly from the existing "speaking should always feel easier than typing" rule (§5.4) — Quick Capture should surface voice as the primary, most prominent action from Day 1, with text always available as a lightweight secondary option (e.g., a small "or type instead" link), never hidden or removed.
+
+**No separate context-awareness engine is needed.** Rather than building bespoke logic to guess when text might be preferable (e.g., commuting, being around other people, late at night), Quick Capture's default input mode should simply be governed by the existing Personalization Engine (§5.10) — which already learns per-user, per-context input preferences over time. This keeps Quick Capture consistent with how the rest of Home already personalizes (e.g., prompt timing) without introducing a new, parallel adaptation system. Day 1 stays simple and predictable (voice-first for everyone); personalization naturally takes over as real usage data accumulates.
+
+#### 5.8.4 Today's Progress — percentage calculation
+**Denominator is fixed at 24 hours** (not "waking hours") — kept simple and universal, no per-user awake-window configuration needed. This only works fairly because of the sleep-handling rule below; without it, a fixed 24-hour denominator would unfairly cap most users around 65–70% and manufacture a false sense of "always behind."
+
+**Sleep is a semi-automatic LifeEvent**, not something the user has to narrate like other activities. Two lightweight paths, either is acceptable at implementation time:
+- User states a default sleep window once (e.g., "I usually sleep 23:00–07:00"), and Chronos auto-fills that block into each day going forward, editable/correctable like any other LifeEvent.
+- Or Chronos asks a very light one-time-per-day confirmation ("Did you sleep around your usual time?") rather than requiring full narration.
+
+Because sleep resolves to a real LifeEvent either way, it counts as "remembered" time — it never shows up as a gap or Forgotten Moment, and the 24-hour-denominator percentage isn't artificially deflated by a block of time nobody expects to actively narrate. This keeps §5.8's existing rule intact: "Remembered %" reflects memory coverage only, never a judgment of the day's quality — and now also never penalizes the user for the simple fact of having slept.
 
 ### 5.9 Gentle Presence — notifications & widgets
 Governing rule: **attention is earned, never demanded.** Success is not measured by how often the app is opened.
@@ -353,8 +463,28 @@ Surfaced only in Weekly/Monthly/Yearly reflection views, always as an open quest
 - **Facts vs. Perspectives are separated in the schema (§5.11 / §5.12).** User-authored facts live in `life_events`; AI output (summaries, patterns, reflections) lives in `perspectives`. A model upgrade may regenerate *perspectives* but must never rewrite a *fact*.
 - **"I don't remember" is a real record, not an error (§6.4).** Filling a gap → a substantive `LifeEvent`. Saying "I don't remember" → a `LifeEvent` with `kind: 'unremembered'`: it still shows a question-mark (§6.5), still counts as forgotten for pattern detection, but is no longer re-surfaced in the invite.
 - **Nothing AI-extracted persists without user review (§5.4 / §5.12).** Capture → AI candidate events → user reviews/edits/confirms → persist. AI-authored content is always visually marked as AI.
-- **Time model.** Store a UTC instant + IANA timezone. A "day" = the user's local calendar day; gaps are computed only *between* the first and last recorded event of that day (so unnarrated sleep/night is never flagged as forgotten). Patterns are keyed by **hour-of-day bucket** (§6.6), not by weekday.
+- **Time model.** Store a UTC instant + IANA timezone. A "day" = the user's local calendar day; gaps are computed only *between* the first and last recorded event of that day (so unnarrated sleep/night is never flagged as forgotten). Patterns are keyed by **hour-of-day bucket** (§6.6), not by weekday. Note (2026-07-03): §5.8.4 later makes sleep a semi-automatic LifeEvent; once that lands, the sleep block bounds the day as a real event and this between-first-and-last-event scope needs revisiting.
 - **Ownership primitives are first-class (§5.11).** Export (JSON + Markdown in v0) and real deletion (event / day / everything) are built at the data layer, not bolted on afterward.
 
 ### Living plan
 Active implementation plan: `.claude/plans/forgotten-moments-v0.plan.md`.
+
+---
+
+## 9. Design Decision Log
+
+Reverse-chronological log of the design sessions that shaped this document. Add a new entry at the top whenever a design session changes the spec.
+
+- **[Session 14]** Memory Explorer: defined result ranking (§5.6.3) — relevance + temporal proximity only, weighted by what the query itself contains; explicitly excluded an "emotional richness"/length-based signal since it would implicitly judge which memories matter more, conflicting with Principle 2. **Memory Explorer design is now complete** (§5.6, §5.6.1–§5.6.3).
+- **[Session 13]** Memory Explorer: defined the semantic matching mechanism (§5.6.2) — embedding-based similarity as the always-on primary signal, with the user's own category structure acting as a secondary relevance boost on top.
+- **[Session 12]** Memory Explorer: defined the three-state search result model (§5.6.1) — never-narrated / known-unfilled-Forgotten-Moment / recorded — making Memory Explorer a second entry point for resolving Forgotten Moments alongside the ring and the end-of-conversation invite.
+- **[Session 11]** Life Chapters: defined chapter closing (§5.7.2) — symmetric to opening, triggers when dominance drops below 25% over the same 6-week window; closing date anchors to a real Chapter Milestone when one exists rather than the detection moment; closing is always a suggestion, never automatic. **Life Chapters design is now complete** (§5.7, §5.7.1, §5.7.2).
+- **[Session 10]** Life Chapters: overlapping themes (e.g., new city + new relationship starting together) are suggested as independent chapters, never auto-merged — chapters have independent start/end lifecycles, and conflating them would break when one ends and the other doesn't. User can still manually merge if desired.
+- **[Session 9]** Life Chapters: defined the chapter-suggestion threshold (§5.7.1) by reusing the Forgotten Moments pattern-promotion model (§6.6) — minimum 6-week observation window, ≥75% day-dominance required (matching the "life theme" tier), always a suggestion, never auto-created.
+- **[Session 8]** Home Experience: Today's Progress uses a fixed 24-hour denominator (§5.8.4), made fair by treating sleep as a semi-automatic LifeEvent (user-set default window or light daily confirmation) so sleep counts as "remembered" rather than manufacturing a permanent gap. **Home Experience design is now complete** (§5.8.1–§5.8.4).
+- **[Session 7]** Home Experience: Quick Capture defaults to voice-first/text-secondary from Day 1 (§5.8.3); no new context-awareness engine — voice-vs-text preference over time is handled entirely by the existing Personalization Engine (§5.10).
+- **[Session 6]** Home Experience: defined Memory Spotlight's selection logic (§5.8.2) — candidate pool deliberately weighted toward process/continuity (Chapter Milestones > continuity markers > simple anniversary) instead of an explicit sensitive-memory flagging system, to structurally reduce the risk of surfacing painful content unprompted.
+- **[Session 5]** Home Experience: resolved the overlap between the daily evening notification (§6.1) and the Home dashboard — notification opens Home already in evening state with the invite already topmost (§5.8.1), and Day-1/empty-state behavior falls out naturally from existing per-section empty-state rules, no special-casing needed.
+- **[Session 4]** Living Ring: defined Week/Month/Year behavior — same duration-aggregation logic at all scales (§5.2.4), Forgotten Moments combine into one aggregate segment that navigates to Today's Story rather than opening a micro-dialog, and patterns stay excluded from the ring entirely (Reflection-only).
+- **[Session 3]** Living Ring: decided dynamic largest-to-smallest segment ordering (12 o'clock start) with fixed-per-category color (§5.2.3), default palette sizing/accessibility rules, and gentle non-blocking color-collision warnings.
+- **[Session 2]** Living Ring: detailed the two-gap-state visual language (§5.2.1) and the tap-to-fill micro-interaction (§5.2.2) for Forgotten Moments on the ring.
