@@ -109,7 +109,8 @@ function classifyGap(startAt: string, endAt: string, durationMs: number): Gap {
   };
 }
 
-function mergedDurationMs(intervals: Array<{ startMs: number; endMs: number }>): number {
+/** Total covered time of possibly-overlapping intervals (shared by ring math). */
+export function mergedDurationMs(intervals: Array<{ startMs: number; endMs: number }>): number {
   const sorted = [...intervals].sort((a, b) => a.startMs - b.startMs);
   let total = 0;
   let activeStart = Number.NaN;

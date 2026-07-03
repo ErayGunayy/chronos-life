@@ -1,0 +1,71 @@
+/**
+ * The Living Ring default palette (CLAUDE.md §5.2.3).
+ *
+ * Requirements encoded here, not just intended:
+ * - assigned in creation order (1st category → color 1, …), never random;
+ * - ~8–10 colors sized for realistic category counts;
+ * - because segment ordering is dynamic, any two colors can end up adjacent —
+ *   every color must be distinguishable from every other one, not just its
+ *   usual neighbors;
+ * - color-blind aware: based on Paul Tol's "muted" scheme, designed to stay
+ *   apart under common color-vision deficiencies by varying lightness and
+ *   saturation alongside hue.
+ *
+ * Categories beyond the palette get tonal variations (lighter/darker shades)
+ * of the base colors rather than new, visually-similar hues.
+ */
+export const DEFAULT_CATEGORY_PALETTE: readonly string[] = [
+  '#44aa99', // teal
+  '#332288', // indigo
+  '#cc6677', // rose
+  '#999933', // olive
+  '#88ccee', // light cyan
+  '#882255', // wine
+  '#ddcc77', // sand
+  '#117733', // green
+  '#aa4499', // purple
+] as const;
+
+/** Neutral for routine (<1h) pauses: dark, silent, never draws the eye (§5.2.1). */
+export const RING_ROUTINE_COLOR = '#57503f';
+
+/** Remembered time whose category is still unset — quiet mid warm neutral. */
+export const RING_UNCATEGORIZED_COLOR = '#a89a85';
+
+/**
+ * Warm neutral accent for forgotten time (§5.2.1) — dashed outline only,
+ * never a category color. Unremembered records reuse it dimmer and static:
+ * the breathing motion means "still open", and those were already answered.
+ */
+export const RING_FORGOTTEN_ACCENT = '#a97f33';
+
+/**
+ * Fixed color for a palette index. Indexes past the palette cycle through
+ * tonal variations of the base colors (§5.2.3): lighter, then darker, then
+ * lighter again — never a brand-new near-identical hue.
+ */
+export function colorForCategoryIndex(index: number): string {
+  if (index < 0 || !Number.isInteger(index)) {
+    throw new RangeError(`palette index must be a non-negative integer, got: ${index}`);
+  }
+  const base = DEFAULT_CATEGORY_PALETTE[index % DEFAULT_CATEGORY_PALETTE.length];
+  const cycle = Math.floor(index / DEFAULT_CATEGORY_PALETTE.length);
+  if (cycle === 0) return base;
+  const variant = (cycle - 1) % 2;
+  return variant === 0 ? shiftLightness(base, 0.3) : shiftLightness(base, -0.22);
+}
+
+/** Mixes a hex color toward white (amount > 0) or black (amount < 0). */
+export function shiftLightness(hex: string, amount: number): string {
+  const match = /^#([0-9a-f]{6})$/i.exec(hex);
+  if (!match) throw new RangeError(`expected #rrggbb color, got: ${hex}`);
+  const channels = [0, 2, 4].map((offset) =>
+    parseInt(match[1].slice(offset, offset + 2), 16),
+  );
+  const target = amount >= 0 ? 255 : 0;
+  const strength = Math.min(Math.abs(amount), 1);
+  const mixed = channels.map((channel) =>
+    Math.round(channel + (target - channel) * strength),
+  );
+  return `#${mixed.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`;
+}
