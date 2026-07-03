@@ -77,10 +77,28 @@ pnpm build
 ## Environment notes
 - pnpm enabled via Corepack (Node 24). Supabase CLI + Docker not installed → Phases 0–1 need no live DB (pure logic + in-memory repo); Supabase provisioning (local-with-Docker or cloud) decided at Phase 2/3. Do not create cloud resources without user confirmation.
 
+## Status — 2026-07-03 (all phases implemented)
+| Phase | Commit | Gate |
+|---|---|---|
+| 0 Foundation | 878e50a…05bc8e2 | 54 unit tests, build green |
+| 1 Time & gaps | ee73617 | 84 tests incl. DST 23/25h days, 60-min boundary |
+| 2 Extraction | e79456f | 120 tests; mocked Claude contract; key server-only |
+| 3–5 Story slice | 88fc938 | 155 tests + UI (capture→review→commit→timeline→invite) |
+| 6 Patterns | b6ed814 | 170 tests; weekly view live at /reflections/weekly |
+| E2E smoke | (not committed — `$CLAUDE_JOB_DIR/tmp/smoke.mjs`) | 18/18 checks over real HTTP against `next start` |
+
+**Deferred, deliberately:**
+- Supabase provisioning (needs user credentials/confirmation). Interface + migration SQL ready; `JsonFileLifeEventRepository` (`.chronos-data/`, gitignored) serves local runtime. Swap point: `src/data/get-repository.ts`.
+- Playwright E2E + visual regression (heavy browser download; the smoke script covers the loop over HTTP for now).
+- shadcn/ui init — v0 UI is hand-rolled Tailwind components (`src/components/today/ui.ts` tokens); adopt shadcn when the component surface grows.
+- Voice capture, push notifications, adaptive invite timing, monthly/yearly reflection UI — per original deferral list.
+
 ## Acceptance
-- [ ] Daily loop works end-to-end (narrate → review → timeline → invite → fill/leave/don't-remember)
-- [ ] Gaps computed (not stored); facts/perspectives separated; "I don't remember" is a real record
-- [ ] All gap/pattern copy passes the tone guardrail
-- [ ] Weekly pattern surfaces from ≥7 days of data; monthly/yearly engine tested
-- [ ] Export (JSON/Markdown) + real deletion work
-- [ ] `pnpm build`, unit, and E2E all green
+- [x] Daily loop works end-to-end (narrate → review → timeline → invite → fill/leave/don't-remember) — verified by 18-check HTTP smoke
+- [x] Gaps computed (not stored); facts/perspectives separated in schema; "I don't remember" is a real `kind:'unremembered'` record
+- [x] All gap/pattern copy passes the tone guardrail (enforced in code via `assertCalmCopy`, tested)
+- [x] Weekly pattern surfaces only from ≥7 days of data; monthly/yearly engine tested (50%→75%→75%)
+- [x] Export (JSON round-trip + human Markdown) + real deletion work end-to-end
+- [x] `pnpm build`, typecheck, lint, 170 unit/integration tests green
+- [ ] Playwright E2E + visual regression (deferred, see above)
+- [ ] Supabase persistence in production (deferred until provisioning)
