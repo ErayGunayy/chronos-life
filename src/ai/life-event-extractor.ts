@@ -6,7 +6,7 @@ import type { ExtractionRequest, ExtractionResult } from '@/domain/capture/types
  * `kind` travels with every result so the UI can honestly mark what produced
  * a candidate (§5.12: nothing AI-generated may pass as user-authored).
  */
-export type ExtractorKind = 'claude' | 'stub';
+export type ExtractorKind = 'claude' | 'ollama' | 'stub';
 
 export interface LifeEventExtractor {
   readonly kind: ExtractorKind;

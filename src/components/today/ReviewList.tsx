@@ -222,20 +222,37 @@ export function ReviewList({ response, localDate, timezone, onCommitted, onBack 
   );
 }
 
+const PROVENANCE: Record<
+  CaptureResponse['extractor'],
+  { label: string; title: string; isAi: boolean }
+> = {
+  claude: {
+    label: 'Read by AI',
+    title: 'These candidates were read from your story by Claude.',
+    isAi: true,
+  },
+  ollama: {
+    label: 'Read by AI · on your device',
+    title: 'These candidates were read from your story by a local model — nothing left your device.',
+    isAi: true,
+  },
+  stub: {
+    label: 'Parsed · no AI',
+    title: 'Parsed with the deterministic dev stub — no AI involved.',
+    isAi: false,
+  },
+};
+
 function ProvenanceBadge({ extractor }: { extractor: CaptureResponse['extractor'] }) {
-  const isAi = extractor === 'claude';
+  const { label, title, isAi } = PROVENANCE[extractor];
   return (
     <span
       className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
         isAi ? 'bg-accent-soft text-accent' : 'border border-line text-muted'
       }`}
-      title={
-        isAi
-          ? 'These candidates were read from your story by AI.'
-          : 'Parsed with the deterministic dev stub — no AI involved.'
-      }
+      title={title}
     >
-      {isAi ? 'Read by AI' : 'Parsed · no AI'}
+      {label}
     </span>
   );
 }
