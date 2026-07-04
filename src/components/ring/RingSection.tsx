@@ -10,7 +10,7 @@ import type {
 } from '@/app/api/ring/handler';
 import type { GapView } from '@/app/api/day/handler';
 import { fetchRing } from '@/components/ring/api';
-import { segmentColor, segmentLabel } from '@/components/ring/labels';
+import { segmentColor, segmentKey, segmentLabel } from '@/components/ring/labels';
 import { LivingRing } from '@/components/ring/LivingRing';
 import { GapFillForm } from '@/components/today/GapFillForm';
 import { aggregateForgottenLead, gapFillHint, gapFillQuestion } from '@/domain/forgotten-moments/copy';
@@ -51,6 +51,7 @@ export function RingSection({ localDate, timezone, refreshToken, onChanged, onSh
   const [ring, setRing] = useState<RingResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeSlice, setActiveSlice] = useState<ForgottenSliceView | null>(null);
+  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
 
   // Latest-wins guard, same as TodayApp: a stale response never overwrites.
   const fetchSequence = useRef(0);
@@ -104,6 +105,7 @@ export function RingSection({ localDate, timezone, refreshToken, onChanged, onSh
             aria-pressed={period === value}
             onClick={() => {
               setActiveSlice(null);
+              setHoveredKey(null);
               setPeriod(value);
             }}
             className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
@@ -132,6 +134,9 @@ export function RingSection({ localDate, timezone, refreshToken, onChanged, onSh
               ? 'this part of your story is still waiting'
               : REMEMBERED_SUBTITLES[period]
           }
+          hoveredKey={hoveredKey}
+          onHoverKey={setHoveredKey}
+          revealKey={`${period}:${refreshToken}`}
           onForgottenSelect={period === 'today' ? handleForgottenSelect : undefined}
           onForgottenNavigate={
             period !== 'today'
@@ -184,18 +189,25 @@ export function RingSection({ localDate, timezone, refreshToken, onChanged, onSh
 
       {!isEmpty && (
         <ul className="mt-6 grid w-full grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3">
-          {segments.map((segment, index) => (
-            <li
-              key={`${segment.kind}:${segment.kind === 'category' ? segment.category : index}`}
-              className="flex min-w-0 items-center gap-2 text-sm"
-            >
-              <LegendSwatch segment={segment} />
-              <span className="truncate">{segmentLabel(segment)}</span>
-              <span className="ml-auto shrink-0 text-xs text-muted">
-                {formatMinutes(segment.durationMinutes)}
-              </span>
-            </li>
-          ))}
+          {segments.map((segment, index) => {
+            const key = segmentKey(segment, index);
+            return (
+              <li
+                key={key}
+                onPointerEnter={() => setHoveredKey(key)}
+                onPointerLeave={() => setHoveredKey(null)}
+                className={`flex min-w-0 items-center gap-2 rounded-md px-1 -mx-1 text-sm transition-colors duration-150 ${
+                  hoveredKey === key ? 'bg-line/40' : ''
+                }`}
+              >
+                <LegendSwatch segment={segment} />
+                <span className="truncate">{segmentLabel(segment)}</span>
+                <span className="ml-auto shrink-0 text-xs text-muted">
+                  {formatMinutes(segment.durationMinutes)}
+                </span>
+              </li>
+            );
+          })}
         </ul>
       )}
     </section>

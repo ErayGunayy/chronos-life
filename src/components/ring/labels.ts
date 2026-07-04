@@ -34,3 +34,17 @@ export function segmentColor(segment: RingSegmentView): string {
       return RING_FORGOTTEN_ACCENT;
   }
 }
+
+/**
+ * Stable identity for a segment — shared by the ring's arcs and the legend so
+ * hovering either one can highlight the other. `index` only breaks ties for
+ * kinds that can repeat within one view (e.g. multiple same-day Forgotten
+ * Moments); category and single-slice forgotten segments key on their own data.
+ */
+export function segmentKey(segment: RingSegmentView, index: number): string {
+  if (segment.kind === 'category') return `category:${segment.category}`;
+  if (segment.kind === 'forgotten' && segment.slices.length === 1) {
+    return `forgotten:${segment.slices[0].startAt}`;
+  }
+  return `${segment.kind}:${index}`;
+}
