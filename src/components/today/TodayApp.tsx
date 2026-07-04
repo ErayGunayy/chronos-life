@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { CaptureResponse } from '@/app/api/capture/handler';
 import type { DayResponse } from '@/app/api/day/handler';
+import { RingSection } from '@/components/ring/RingSection';
 import { fetchDay } from '@/components/today/api';
 import { CaptureForm } from '@/components/today/CaptureForm';
 import { ReviewList } from '@/components/today/ReviewList';
@@ -23,6 +24,9 @@ export function TodayApp() {
   const [day, setDay] = useState<DayResponse | null>(null);
   const [review, setReview] = useState<CaptureResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Bumped on every day (re)load so the ring refetches alongside the story.
+  const [dayVersion, setDayVersion] = useState(0);
+  const storyRef = useRef<HTMLDivElement | null>(null);
 
   // Latest-wins guard: overlapping refreshes must not let a stale day
   // overwrite a fresher one.
@@ -35,6 +39,7 @@ export function TodayApp() {
         const loaded = await fetchDay(localDate, timezone);
         if (sequence !== refreshSequence.current) return;
         setDay(loaded);
+        setDayVersion((version) => version + 1);
         setError(null);
         setView(nextView ?? (loaded.segments.length === 0 ? 'capture' : 'story'));
       } catch (cause) {
@@ -64,6 +69,14 @@ export function TodayApp() {
       isCancelled = true;
     };
   }, [localDate, timezone]);
+
+  const handleShowStory = useCallback(() => {
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    storyRef.current?.scrollIntoView({
+      behavior: prefersReducedMotion ? 'auto' : 'smooth',
+      block: 'start',
+    });
+  }, []);
 
   const handleExtracted = (response: CaptureResponse) => {
     setReview(response);
@@ -135,13 +148,25 @@ export function TodayApp() {
       )}
 
       {view === 'story' && day && (
-        <StoryView
-          day={day}
-          localDate={localDate}
-          timezone={timezone}
-          onContinue={() => setView('capture')}
-          onChanged={() => void refreshDay('story')}
-        />
+        <>
+          {/* The Living Ring always comes first (§5.8). */}
+          <RingSection
+            localDate={localDate}
+            timezone={timezone}
+            refreshToken={dayVersion}
+            onChanged={() => void refreshDay('story')}
+            onShowStory={handleShowStory}
+          />
+          <div ref={storyRef}>
+            <StoryView
+              day={day}
+              localDate={localDate}
+              timezone={timezone}
+              onContinue={() => setView('capture')}
+              onChanged={() => void refreshDay('story')}
+            />
+          </div>
+        </>
       )}
     </div>
   );

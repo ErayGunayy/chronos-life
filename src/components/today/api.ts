@@ -49,7 +49,7 @@ export function commitMemories(
   });
 }
 
-async function requestJson<T>(input: string, init?: RequestInit): Promise<T> {
+export async function requestJson<T>(input: string, init?: RequestInit): Promise<T> {
   const response = await fetch(input, init);
   const envelope = (await response.json().catch(() => null)) as ApiEnvelope<T> | null;
   if (!envelope || !envelope.success || envelope.data === null) {

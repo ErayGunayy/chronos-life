@@ -1,0 +1,166 @@
+'use client';
+
+import type { RingSegmentView } from '@/app/api/ring/handler';
+import { ringArcs, type ArcSpec } from '@/components/ring/geometry';
+import { segmentColor, segmentLabel } from '@/components/ring/labels';
+import { formatMinutes } from '@/lib/time/duration';
+
+const VIEWBOX = 240;
+const CENTER = VIEWBOX / 2;
+const RADIUS = 96;
+const SOLID_STROKE = 20;
+/** Wider invisible stroke so a thin breathing arc is still an easy tap target. */
+const HIT_STROKE = 30;
+
+type ForgottenSegment = Extract<RingSegmentView, { kind: 'forgotten' }>;
+
+type Props = {
+  segments: readonly RingSegmentView[];
+  centerTitle: string;
+  centerSubtitle: string;
+  /** Today view: tapping a breathing arc opens the fill-in dialog (§5.2.2). */
+  onForgottenSelect?: (segment: ForgottenSegment) => void;
+  /** Period views: the aggregate arc navigates to the story instead (§5.2.4). */
+  onForgottenNavigate?: () => void;
+};
+
+/**
+ * The Living Ring (§5.2) — a pure view over already-computed segments.
+ * Solid fixed-color arcs for categories, a silent dark arc for routine
+ * pauses, a static dashed arc for answered "unremembered" time, and
+ * breathing dashed arcs for Forgotten Moments: fill vs. dashed-outline stay
+ * visually distinct at every period scale (§5.2.1).
+ */
+export function LivingRing({
+  segments,
+  centerTitle,
+  centerSubtitle,
+  onForgottenSelect,
+  onForgottenNavigate,
+}: Props) {
+  const arcs = ringArcs(
+    segments.map((segment) => segment.share),
+    CENTER,
+    CENTER,
+    RADIUS,
+  );
+
+  return (
+    <div className="relative mx-auto w-56 sm:w-64">
+      <svg viewBox={`0 0 ${VIEWBOX} ${VIEWBOX}`} className="h-auto w-full">
+        {segments.length === 0 && (
+          <circle
+            cx={CENTER}
+            cy={CENTER}
+            r={RADIUS}
+            fill="none"
+            stroke="var(--line)"
+            strokeWidth={2}
+            strokeDasharray="3 6"
+          />
+        )}
+        {segments.map((segment, index) => (
+          <RingArc
+            key={arcKey(segment, index)}
+            segment={segment}
+            arc={arcs[index]}
+            onForgottenSelect={onForgottenSelect}
+            onForgottenNavigate={onForgottenNavigate}
+          />
+        ))}
+      </svg>
+      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-10 text-center">
+        <p className="font-display text-2xl text-foreground">{centerTitle}</p>
+        <p className="mt-1 text-xs leading-4 text-muted">{centerSubtitle}</p>
+      </div>
+    </div>
+  );
+}
+
+function RingArc({
+  segment,
+  arc,
+  onForgottenSelect,
+  onForgottenNavigate,
+}: {
+  segment: RingSegmentView;
+  arc: ArcSpec;
+  onForgottenSelect?: (segment: ForgottenSegment) => void;
+  onForgottenNavigate?: () => void;
+}) {
+  const color = segmentColor(segment);
+  const tooltip = `${segmentLabel(segment)} — ${formatMinutes(segment.durationMinutes)}`;
+
+  if (segment.kind !== 'forgotten') {
+    const isUnremembered = segment.kind === 'unremembered';
+    return (
+      <path
+        d={arc.path}
+        fill="none"
+        stroke={color}
+        strokeWidth={isUnremembered ? 12 : SOLID_STROKE}
+        strokeDasharray={isUnremembered ? '2 6' : undefined}
+        strokeLinecap={isUnremembered ? 'round' : 'butt'}
+        opacity={isUnremembered ? 0.4 : 1}
+      >
+        <title>{tooltip}</title>
+      </path>
+    );
+  }
+
+  const activate = onForgottenSelect
+    ? () => onForgottenSelect(segment)
+    : onForgottenNavigate;
+  const ariaLabel = forgottenAriaLabel(segment, Boolean(onForgottenSelect));
+
+  return (
+    <g>
+      <path
+        aria-hidden
+        d={arc.path}
+        fill="none"
+        stroke={color}
+        strokeDasharray="5 8"
+        strokeLinecap="round"
+        className="ring-breathe"
+      />
+      {activate && (
+        <path
+          d={arc.path}
+          fill="none"
+          stroke="transparent"
+          strokeWidth={HIT_STROKE}
+          role="button"
+          tabIndex={0}
+          aria-label={ariaLabel}
+          className="ring-hit cursor-pointer"
+          onClick={activate}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              activate();
+            }
+          }}
+        >
+          <title>{tooltip}</title>
+        </path>
+      )}
+    </g>
+  );
+}
+
+function forgottenAriaLabel(segment: ForgottenSegment, isFillable: boolean): string {
+  if (isFillable && segment.slices.length === 1) {
+    const slice = segment.slices[0];
+    return `Still unwritten, ${slice.startLabel}–${slice.endLabel} — open to fill in`;
+  }
+  return 'Still unwritten moments — see the story';
+}
+
+function arcKey(segment: RingSegmentView, index: number): string {
+  if (segment.kind === 'category') return `category:${segment.category}`;
+  if (segment.kind === 'forgotten' && segment.slices.length === 1) {
+    return `forgotten:${segment.slices[0].startAt}`;
+  }
+  return `${segment.kind}:${index}`;
+}

@@ -46,6 +46,38 @@ body {
   font-family: var(--font-display);
 }
 
+/*
+ * Forgotten Moments on the Living Ring breathe slowly (§5.2.1): opacity
+ * 22% → 55% → 22% and stroke 11 → 14 → 11 on a ~4.5s ease-in-out loop —
+ * ambient "still open", never attention-grabbing. The resting values below
+ * are what reduced-motion users see once the global rule stops the loop.
+ */
+@keyframes ring-breathe {
+  0%,
+  100% {
+    opacity: 0.22;
+    stroke-width: 11;
+  }
+  50% {
+    opacity: 0.55;
+    stroke-width: 14;
+  }
+}
+
+.ring-breathe {
+  opacity: 0.45;
+  stroke-width: 12;
+  animation: ring-breathe 4.5s ease-in-out infinite;
+}
+
+/* Keyboard focus on a tappable ring arc: a soft halo, no harsh outline. */
+.ring-hit:focus {
+  outline: none;
+}
+.ring-hit:focus-visible {
+  stroke: color-mix(in srgb, var(--question) 30%, transparent);
+}
+
 /* Calm technology: motion is subtle and always optional (§5.2). */
 @media (prefers-reduced-motion: reduce) {
   *,
