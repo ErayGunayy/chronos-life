@@ -216,19 +216,31 @@ export function RingSection({ localDate, timezone, refreshToken, onChanged, onSh
 
 function LegendSwatch({ segment }: { segment: RingSegmentView }) {
   const color = segmentColor(segment);
-  const isOutlined = segment.kind === 'forgotten' || segment.kind === 'unremembered';
+  // Dotted vs. dashed mirrors the ring's own texture distinction: unremembered
+  // is answered and settled, forgotten is still open — never just a color cue.
+  if (segment.kind === 'unremembered') {
+    return (
+      <span
+        aria-hidden
+        className="h-2.5 w-2.5 shrink-0 rounded-full opacity-70"
+        style={{ border: `1.5px dotted ${color}` }}
+      />
+    );
+  }
+  if (segment.kind === 'forgotten') {
+    return (
+      <span
+        aria-hidden
+        className="h-2.5 w-2.5 shrink-0 rounded-full"
+        style={{ border: `1.5px dashed ${color}` }}
+      />
+    );
+  }
   return (
     <span
       aria-hidden
       className="h-2.5 w-2.5 shrink-0 rounded-full"
-      style={
-        isOutlined
-          ? {
-              border: `1.5px dashed ${color}`,
-              opacity: segment.kind === 'unremembered' ? 0.5 : 1,
-            }
-          : { backgroundColor: color }
-      }
+      style={{ backgroundColor: color }}
     />
   );
 }

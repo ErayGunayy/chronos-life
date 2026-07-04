@@ -33,18 +33,29 @@ export const RING_ROUTINE_COLOR = '#57503f';
 export const RING_UNCATEGORIZED_COLOR = '#a89a85';
 
 /**
- * Warm neutral accent for forgotten time (§5.2.1) — dashed outline only,
- * never a category color. Unremembered records reuse it dimmer and static:
- * the breathing motion means "still open", and those were already answered.
+ * Warm amber accent for a still-open Forgotten Moment (§5.2.1) — dashed
+ * outline only, never a category color, paired with the breathing motion:
+ * this is specifically the "still fillable" signal.
  *
  * Kept in sync with `--question` in src/app/globals.css (Today's Story uses
- * the same "unwritten time" concept) — two independent literals, since CSS
+ * the same "still open" concept) — two independent literals, since CSS
  * can't read this TS constant. Changing one should prompt checking the other.
  * This constant has no dark-mode variant yet (see globals.css's dark
  * `--question: #d9a655`); the ring doesn't route through CSS custom
  * properties today, so it won't adapt to dark mode until that's revisited.
  */
 export const RING_FORGOTTEN_ACCENT = '#a97f33';
+
+/**
+ * Neutral, static color for an *answered* "I don't remember" record (§6.4) —
+ * deliberately NOT the amber above. §5.2.1 only specs the ring's routine-gap
+ * vs. Forgotten-Moment treatment; it never mandated reusing the amber for
+ * this third, answered state, and doing so read as visually confusable with
+ * the still-open breathing arc. Matches `--muted` in globals.css, the same
+ * de-emphasized tone Today's Story already uses for this exact record kind —
+ * "a fact, stated plainly, not re-asked" rather than "still open".
+ */
+export const RING_UNREMEMBERED_COLOR = '#83807a';
 
 /**
  * Fixed color for a palette index. Indexes past the palette cycle through

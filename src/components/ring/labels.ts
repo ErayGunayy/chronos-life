@@ -3,6 +3,7 @@ import {
   RING_FORGOTTEN_ACCENT,
   RING_ROUTINE_COLOR,
   RING_UNCATEGORIZED_COLOR,
+  RING_UNREMEMBERED_COLOR,
 } from '@/domain/ring/palette';
 
 /** Human names for ring segments (§5.1 — story language, never database language). */
@@ -30,6 +31,7 @@ export function segmentColor(segment: RingSegmentView): string {
     case 'routine-gap':
       return RING_ROUTINE_COLOR;
     case 'unremembered':
+      return RING_UNREMEMBERED_COLOR;
     case 'forgotten':
       return RING_FORGOTTEN_ACCENT;
   }

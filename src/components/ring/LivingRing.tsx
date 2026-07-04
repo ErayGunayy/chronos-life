@@ -33,9 +33,10 @@ type Props = {
 /**
  * The Living Ring (§5.2) — a pure view over already-computed segments.
  * Solid fixed-color arcs for categories, a silent dark arc for routine
- * pauses, a static dashed arc for answered "unremembered" time, and
- * breathing dashed arcs for Forgotten Moments: fill vs. dashed-outline stay
- * visually distinct at every period scale (§5.2.1).
+ * pauses, a fine static dotted arc (neutral, muted) for answered
+ * "unremembered" time, and breathing dashed amber arcs for still-open
+ * Forgotten Moments — color AND texture differ between the two "unaccounted
+ * time" states so they're never confused, at every period scale (§5.2.1).
  */
 export function LivingRing({
   segments,
@@ -149,10 +150,13 @@ function RingArc({
         d={arc.path}
         fill="none"
         stroke={color}
-        strokeWidth={isUnremembered ? 12 : SOLID_STROKE}
-        strokeDasharray={isUnremembered ? '2 6' : undefined}
+        strokeWidth={isUnremembered ? 10 : SOLID_STROKE}
+        // Fine dots (not the breathing arc's longer dashes) so the two
+        // "unaccounted time" states read as distinct shapes, not just colors —
+        // this one is answered and settled, never confused with "still open".
+        strokeDasharray={isUnremembered ? '1.5 5' : undefined}
         strokeLinecap={isUnremembered ? 'round' : 'butt'}
-        opacity={isUnremembered && !isHovered ? 0.4 : 1}
+        opacity={isUnremembered && !isHovered ? 0.55 : 1}
         tabIndex={0}
         aria-label={label}
         style={{ transformOrigin: ORIGIN }}
