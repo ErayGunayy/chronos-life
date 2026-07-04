@@ -1,23 +1,46 @@
 @import "tailwindcss";
 
 /*
- * Chronos v0 — "calm journal" direction, deliberately light-only.
- * Warm paper surfaces, warm ink, one terracotta accent used semantically
- * (actions), amber reserved for the question-mark of unwritten time.
+ * Chronos v0 — "Quiet Teal" direction (decided; see CLAUDE.md §8 "App theme
+ * palette" and the Design Decision Log). Warm-neutral paper surfaces, a
+ * single desaturated teal accent for actions, amber reserved for the
+ * question-mark of unwritten time. Light is the default; dark follows the
+ * OS's prefers-color-scheme below — no manual toggle in v0.
+ *
+ * --question is kept in sync with RING_FORGOTTEN_ACCENT in
+ * src/domain/ring/palette.ts — the same "unwritten time" concept, used by
+ * Today's Story and the Living Ring. They're two independent literals (CSS
+ * can't read a TS constant), so changing one should prompt checking the other.
  */
 :root {
-  --background: #faf6ef;
-  --foreground: #2b2620;
-  --muted: #8b8172;
-  --line: #e8e0d0;
-  --card: #fffdf8;
-  --accent: #b0522a;
-  --accent-ink: #fff6f0;
-  --accent-soft: #f6e5d8;
-  --question: #96690a;
-  --question-bg: #fcf3dd;
-  --question-line: #e5cf9a;
+  --background: #f5f4f1;
+  --foreground: #262624;
+  --muted: #83807a;
+  --line: #e1ded7;
+  --card: #fdfcfa;
+  --accent: #3f6b64;
+  --accent-ink: #eef6f4;
+  --accent-soft: #dce9e6;
+  --question: #a97f33;
+  --question-bg: #faf1de;
+  --question-line: #e6d2a4;
   --font-display: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #1a1918;
+    --foreground: #ece9e4;
+    --muted: #928d84;
+    --line: #302e2a;
+    --card: #211f1c;
+    --accent: #6fa89f;
+    --accent-ink: #12211d;
+    --accent-soft: #253a36;
+    --question: #d9a655;
+    --question-bg: #2c2417;
+    --question-line: #4a3c22;
+  }
 }
 
 @theme inline {

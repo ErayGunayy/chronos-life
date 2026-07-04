@@ -3,7 +3,7 @@
 import { useState } from 'react';
 
 import type { DayResponse, EventView, GapView } from '@/app/api/day/handler';
-import { commitMemories } from '@/components/today/api';
+import { commitMemories, deleteMemory } from '@/components/today/api';
 import { GapFillForm } from '@/components/today/GapFillForm';
 import { ghostButton, primaryButton, quietButton } from '@/components/today/ui';
 
@@ -26,8 +26,24 @@ type Props = {
 export function StoryView({ day, localDate, timezone, onContinue, onChanged }: Props) {
   const [openGap, setOpenGap] = useState<string | null>(null);
   const [busyGap, setBusyGap] = useState<string | null>(null);
+  const [confirmingEventId, setConfirmingEventId] = useState<string | null>(null);
+  const [busyEventId, setBusyEventId] = useState<string | null>(null);
   const [isInviteDismissed, setIsInviteDismissed] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handleDeleteEvent = async (id: string) => {
+    if (busyEventId) return;
+    setBusyEventId(id);
+    setError(null);
+    try {
+      await deleteMemory(id);
+      onChanged();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Something went wrong.');
+    } finally {
+      setBusyEventId(null);
+    }
+  };
 
   const handleDontRemember = async (gap: GapView) => {
     if (busyGap) return;
@@ -81,7 +97,14 @@ export function StoryView({ day, localDate, timezone, onContinue, onChanged }: P
         {day.segments.map((segment) =>
           segment.type === 'event' ? (
             <li key={segment.event.id}>
-              <EventBlock event={segment.event} />
+              <EventBlock
+                event={segment.event}
+                isConfirmingDelete={confirmingEventId === segment.event.id}
+                isDeleting={busyEventId === segment.event.id}
+                onRequestDelete={() => setConfirmingEventId(segment.event.id)}
+                onConfirmDelete={() => void handleDeleteEvent(segment.event.id)}
+                onCancelDelete={() => setConfirmingEventId(null)}
+              />
             </li>
           ) : segment.gap.kind === 'routine' ? (
             // Routine gaps stay gray and silent (§6.3) — a quiet passage of time.
@@ -134,7 +157,21 @@ export function StoryView({ day, localDate, timezone, onContinue, onChanged }: P
   );
 }
 
-function EventBlock({ event }: { event: EventView }) {
+function EventBlock({
+  event,
+  isConfirmingDelete,
+  isDeleting,
+  onRequestDelete,
+  onConfirmDelete,
+  onCancelDelete,
+}: {
+  event: EventView;
+  isConfirmingDelete: boolean;
+  isDeleting: boolean;
+  onRequestDelete: () => void;
+  onConfirmDelete: () => void;
+  onCancelDelete: () => void;
+}) {
   if (event.kind === 'unremembered') {
     return (
       <article className="my-2 rounded-xl border border-dashed border-line bg-card/60 p-4">
@@ -147,6 +184,19 @@ function EventBlock({ event }: { event: EventView }) {
         <p className="mt-1 text-sm text-muted">
           You marked this as not remembered — it can always be filled in later.
         </p>
+        {isConfirmingDelete ? (
+          <DeleteRow
+            isDeleting={isDeleting}
+            onConfirmDelete={onConfirmDelete}
+            onCancelDelete={onCancelDelete}
+          />
+        ) : (
+          <div className="mt-3 flex justify-end">
+            <button type="button" onClick={onRequestDelete} className={quietButton}>
+              Delete
+            </button>
+          </div>
+        )}
       </article>
     );
   }
@@ -173,8 +223,45 @@ function EventBlock({ event }: { event: EventView }) {
       )}
       {event.description && <p className="mt-2 text-sm leading-6">{event.description}</p>}
       {event.notes && <p className="mt-2 text-sm leading-6 text-muted">{event.notes}</p>}
-      <p className="mt-3 text-xs text-muted/80">{SOURCE_LABELS[event.source]}</p>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-muted/80">{SOURCE_LABELS[event.source]}</p>
+        {!isConfirmingDelete && (
+          <button type="button" onClick={onRequestDelete} className={quietButton}>
+            Delete
+          </button>
+        )}
+      </div>
+      {isConfirmingDelete && (
+        <DeleteRow
+          isDeleting={isDeleting}
+          onConfirmDelete={onConfirmDelete}
+          onCancelDelete={onCancelDelete}
+        />
+      )}
     </article>
+  );
+}
+
+/** The inline "are you sure" step for deleting a memory — no native confirm(), matching GapFillForm's Cancel/Submit convention. */
+function DeleteRow({
+  isDeleting,
+  onConfirmDelete,
+  onCancelDelete,
+}: {
+  isDeleting: boolean;
+  onConfirmDelete: () => void;
+  onCancelDelete: () => void;
+}) {
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-2">
+      <p className="text-sm text-muted">Delete this memory?</p>
+      <button type="button" onClick={onConfirmDelete} disabled={isDeleting} className={ghostButton}>
+        {isDeleting ? 'Deleting…' : 'Yes, delete'}
+      </button>
+      <button type="button" onClick={onCancelDelete} disabled={isDeleting} className={quietButton}>
+        Cancel
+      </button>
+    </div>
   );
 }
 

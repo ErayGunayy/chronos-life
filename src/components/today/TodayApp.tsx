@@ -108,7 +108,7 @@ export function TodayApp() {
               This week
             </Link>
           </p>
-          <p>
+          <p className="mb-1">
             <a className="underline decoration-line underline-offset-2 hover:text-accent" href="/api/export?format=markdown">
               export Markdown
             </a>
@@ -116,6 +116,14 @@ export function TodayApp() {
             <a className="underline decoration-line underline-offset-2 hover:text-accent" href="/api/export?format=json">
               JSON
             </a>
+          </p>
+          <p>
+            <Link
+              className="underline decoration-line underline-offset-2 hover:text-accent"
+              href="/settings"
+            >
+              Settings
+            </Link>
           </p>
         </nav>
       </header>

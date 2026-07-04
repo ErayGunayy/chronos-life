@@ -36,6 +36,13 @@ export const RING_UNCATEGORIZED_COLOR = '#a89a85';
  * Warm neutral accent for forgotten time (§5.2.1) — dashed outline only,
  * never a category color. Unremembered records reuse it dimmer and static:
  * the breathing motion means "still open", and those were already answered.
+ *
+ * Kept in sync with `--question` in src/app/globals.css (Today's Story uses
+ * the same "unwritten time" concept) — two independent literals, since CSS
+ * can't read this TS constant. Changing one should prompt checking the other.
+ * This constant has no dark-mode variant yet (see globals.css's dark
+ * `--question: #d9a655`); the ring doesn't route through CSS custom
+ * properties today, so it won't adapt to dark mode until that's revisited.
  */
 export const RING_FORGOTTEN_ACCENT = '#a97f33';
 

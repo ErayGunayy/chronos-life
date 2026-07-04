@@ -466,6 +466,27 @@ Surfaced only in Weekly/Monthly/Yearly reflection views, always as an open quest
 - **Time model.** Store a UTC instant + IANA timezone. A "day" = the user's local calendar day; gaps are computed only *between* the first and last recorded event of that day (so unnarrated sleep/night is never flagged as forgotten). Patterns are keyed by **hour-of-day bucket** (§6.6), not by weekday. Note (2026-07-03): §5.8.4 later makes sleep a semi-automatic LifeEvent; once that lands, the sleep block bounds the day as a real event and this between-first-and-last-event scope needs revisiting.
 - **Ownership primitives are first-class (§5.11).** Export (JSON + Markdown in v0) and real deletion (event / day / everything) are built at the data layer, not bolted on afterward.
 
+### App theme palette (v0)
+Decided 2026-07-04, distinct from the Living Ring's category palette (§5.2.3, decided separately — the ring's 9 category colors are untouched by this). Direction: **"Quiet Teal"** — warm-neutral paper surfaces, a single desaturated teal accent for actions, amber reserved for the "unwritten time" concept. Implemented as CSS custom properties in `src/app/globals.css`; light is `:root`, dark follows the OS's `prefers-color-scheme` (no manual toggle in v0 — every Tailwind utility already resolves through these variables via `@theme inline`, so no component changes were needed to add dark mode).
+
+| Token | Light | Dark |
+|---|---|---|
+| `--background` | `#f5f4f1` | `#1a1918` |
+| `--foreground` | `#262624` | `#ece9e4` |
+| `--muted` | `#83807a` | `#928d84` |
+| `--line` | `#e1ded7` | `#302e2a` |
+| `--card` | `#fdfcfa` | `#211f1c` |
+| `--accent` | `#3f6b64` | `#6fa89f` |
+| `--accent-ink` | `#eef6f4` | `#12211d` |
+| `--accent-soft` | `#dce9e6` | `#253a36` |
+| `--question` | `#a97f33` | `#d9a655` |
+| `--question-bg` | `#faf1de` | `#2c2417` |
+| `--question-line` | `#e6d2a4` | `#4a3c22` |
+
+`--question` is now identical to the Living Ring's `RING_FORGOTTEN_ACCENT` (`src/domain/ring/palette.ts`) — previously these were two independently-hardcoded ambers (`#96690a` vs `#a97f33`) for the same "unwritten time" concept. They remain two separately-maintained literals (a CSS custom property can't be read by the TS domain layer without new build tooling), cross-referenced by comment in both files.
+
+**Known follow-up, not yet done:** the Ring's own colors (category palette, routine/uncategorized/forgotten accents) are plain TS hex constants baked into SVG `stroke` values — they don't route through `var(--...)` and so don't participate in this dark-mode switch. Verify the Ring still reads clearly on the dark background; if not, migrating Ring colors to CSS custom properties would let them inherit the same light/dark mechanism.
+
 ### Living plan
 Active implementation plan: `.claude/plans/forgotten-moments-v0.plan.md`.
 
@@ -474,6 +495,8 @@ Active implementation plan: `.claude/plans/forgotten-moments-v0.plan.md`.
 ## 9. Design Decision Log
 
 Reverse-chronological log of the design sessions that shaped this document. Add a new entry at the top whenever a design session changes the spec.
+
+- **[Session 15]** Decided the app's overall UI theme palette (§8 "App theme palette"), previously an undocumented inline code comment — direction "Quiet Teal," with a proper dark mode via `prefers-color-scheme` (the app was light-only before). Unified the "unwritten time" amber between Today's Story and the Living Ring into one shared value; flagged the Ring's own colors as not yet dark-mode-aware. Also shipped real deletion end-to-end (§5.11 — previously only the data layer existed, no UI ever called it): per-event delete in Today's Story, and a `/settings` page for exporting or permanently deleting everything.
 
 - **[Session 14]** Memory Explorer: defined result ranking (§5.6.3) — relevance + temporal proximity only, weighted by what the query itself contains; explicitly excluded an "emotional richness"/length-based signal since it would implicitly judge which memories matter more, conflicting with Principle 2. **Memory Explorer design is now complete** (§5.6, §5.6.1–§5.6.3).
 - **[Session 13]** Memory Explorer: defined the semantic matching mechanism (§5.6.2) — embedding-based similarity as the always-on primary signal, with the user's own category structure acting as a secondary relevance boost on top.

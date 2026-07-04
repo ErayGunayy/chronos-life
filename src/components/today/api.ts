@@ -49,6 +49,12 @@ export function commitMemories(
   });
 }
 
+export function deleteMemory(id: string): Promise<{ deleted: boolean }> {
+  return requestJson<{ deleted: boolean }>(`/api/memories/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+}
+
 export async function requestJson<T>(input: string, init?: RequestInit): Promise<T> {
   const response = await fetch(input, init);
   const envelope = (await response.json().catch(() => null)) as ApiEnvelope<T> | null;
