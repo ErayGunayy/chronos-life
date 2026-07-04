@@ -93,6 +93,11 @@ function wallClockAsUtcMs(instantMs: number, timeZone: string): number {
 
 /** The local calendar date one day after `localDate` (handles month/year rollover). */
 export function nextLocalDate(localDate: string): string {
+  return addLocalDays(localDate, 1);
+}
+
+/** Pure calendar-date arithmetic: `localDate` shifted by `days` (may be negative). */
+export function addLocalDays(localDate: string, days: number): string {
   const [year, month, day] = localDate.split('-').map(Number);
-  return new Date(Date.UTC(year, month - 1, day + 1)).toISOString().slice(0, 10);
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
 }
