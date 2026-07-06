@@ -1,6 +1,8 @@
 import type { CaptureResponse } from '@/app/api/capture/handler';
+import type { CategoriesResponse } from '@/app/api/categories/handler';
 import type { DayResponse } from '@/app/api/day/handler';
 import type { CommitResponse } from '@/app/api/memories/handler';
+import type { CategorySuggestion } from '@/domain/category/suggestions';
 import type { ApiEnvelope } from '@/lib/api/envelope';
 
 export interface MemoryCommitItem {
@@ -35,6 +37,10 @@ export function extractStory(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ narrative, localDate, timezone }),
   });
+}
+
+export function fetchCategories(): Promise<CategorySuggestion[]> {
+  return requestJson<CategoriesResponse>('/api/categories').then((data) => [...data.categories]);
 }
 
 export function commitMemories(

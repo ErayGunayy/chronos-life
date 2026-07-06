@@ -1,10 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import type { CaptureResponse } from '@/app/api/capture/handler';
-import { commitMemories, type MemoryCommitItem } from '@/components/today/api';
+import { commitMemories, fetchCategories, type MemoryCommitItem } from '@/components/today/api';
+import { CategoryPicker } from '@/components/today/CategoryPicker';
 import { fieldLabel, ghostButton, primaryButton, quietButton, textInput } from '@/components/today/ui';
+import { DEFAULT_CATEGORIES, type CategorySuggestion } from '@/domain/category/suggestions';
 
 const APPROXIMATE_TIME_THRESHOLD = 0.6;
 
@@ -53,6 +55,24 @@ export function ReviewList({
   );
   const [isBusy, setIsBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<CategorySuggestion[]>(() =>
+    DEFAULT_CATEGORIES.map((name) => ({ name, colorIndex: null })),
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchCategories().then(
+      (loaded) => {
+        if (!cancelled) setSuggestions(loaded);
+      },
+      () => {
+        // Keep the default seed if the list can't be fetched — still usable.
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const updateItem = (index: number, patch: Partial<EditableCandidate>) => {
     setItems((current) =>
@@ -62,6 +82,21 @@ export function ReviewList({
 
   const removeItem = (index: number) => {
     setItems((current) => current.filter((_, i) => i !== index));
+  };
+
+  // Picking a category is a deliberate human choice, so it's full-confidence
+  // (not the model's guess); clearing it drops the category entirely.
+  const selectCategory = (index: number, name: string) => {
+    updateItem(index, { category: name, categoryConfidence: name === '' ? null : 1 });
+  };
+
+  const createCategory = (index: number, name: string) => {
+    setSuggestions((current) =>
+      current.some((suggestion) => suggestion.name === name)
+        ? current
+        : [...current, { name, colorIndex: null }],
+    );
+    selectCategory(index, name);
   };
 
   const handleCommit = async () => {
@@ -137,7 +172,7 @@ export function ReviewList({
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 <div>
                   <label className={fieldLabel} htmlFor={`start-${index}`}>
                     From
@@ -163,18 +198,6 @@ export function ReviewList({
                   />
                 </div>
                 <div>
-                  <label className={fieldLabel} htmlFor={`category-${index}`}>
-                    Category
-                  </label>
-                  <input
-                    id={`category-${index}`}
-                    className={textInput}
-                    value={item.category}
-                    onChange={(event) => updateItem(index, { category: event.target.value })}
-                    placeholder="optional"
-                  />
-                </div>
-                <div>
                   <label className={fieldLabel} htmlFor={`place-${index}`}>
                     Place
                   </label>
@@ -186,6 +209,20 @@ export function ReviewList({
                     placeholder="optional"
                   />
                 </div>
+              </div>
+
+              <div className="mt-3">
+                <p className={fieldLabel}>Category</p>
+                <CategoryPicker
+                  selected={item.category}
+                  suggestions={
+                    item.category && !suggestions.some((s) => s.name === item.category)
+                      ? [...suggestions, { name: item.category, colorIndex: null }]
+                      : suggestions
+                  }
+                  onSelect={(name) => selectCategory(index, name)}
+                  onCreate={(name) => createCategory(index, name)}
+                />
               </div>
 
               <div className="mt-3">

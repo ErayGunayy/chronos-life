@@ -188,7 +188,7 @@ export function RingSection({ localDate, timezone, refreshToken, onChanged, onSh
       )}
 
       {!isEmpty && (
-        <ul className="mt-6 grid w-full grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3">
+        <ul className="mt-6 grid w-full grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3 lg:grid-cols-2">
           {segments.map((segment, index) => {
             const key = segmentKey(segment, index);
             return (

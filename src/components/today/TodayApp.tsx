@@ -94,7 +94,7 @@ export function TodayApp() {
   const hasStory = (day?.segments.length ?? 0) > 0;
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-5 py-10 sm:py-14">
+    <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-5 py-10 sm:py-14 lg:max-w-6xl">
       <header className="mb-10 flex items-baseline justify-between gap-4">
         <div>
           <p className="font-display text-xl tracking-tight text-accent">Chronos</p>
@@ -137,54 +137,66 @@ export function TodayApp() {
         </p>
       )}
 
-      {view === 'loading' && <p className="text-sm text-muted">Opening today…</p>}
+      {view === 'loading' && (
+        <p className="mx-auto w-full max-w-2xl text-sm text-muted">Opening today…</p>
+      )}
 
+      {/* Capture and review stay a readable narrow column even on wide screens. */}
       {view === 'capture' && (
-        <CaptureForm
-          localDate={localDate}
-          timezone={timezone}
-          onExtracted={(response) => handleExtracted(response, 'life-conversation')}
-          onCancel={hasStory ? () => setView('story') : undefined}
-        />
+        <div className="mx-auto w-full max-w-2xl">
+          <CaptureForm
+            localDate={localDate}
+            timezone={timezone}
+            onExtracted={(response) => handleExtracted(response, 'life-conversation')}
+            onCancel={hasStory ? () => setView('story') : undefined}
+          />
+        </div>
       )}
 
       {view === 'review' && review && (
-        <ReviewList
-          response={review}
-          localDate={localDate}
-          timezone={timezone}
-          source={reviewSource}
-          onCommitted={handleCommitted}
-          onBack={() => setView('capture')}
-        />
+        <div className="mx-auto w-full max-w-2xl">
+          <ReviewList
+            response={review}
+            localDate={localDate}
+            timezone={timezone}
+            source={reviewSource}
+            onCommitted={handleCommitted}
+            onBack={() => setView('capture')}
+          />
+        </div>
       )}
 
       {view === 'story' && day && (
-        <>
-          {/* The Living Ring always comes first (§5.8). */}
-          <RingSection
-            localDate={localDate}
-            timezone={timezone}
-            refreshToken={dayVersion}
-            onChanged={() => void refreshDay('story')}
-            onShowStory={handleShowStory}
-          />
-          <div ref={storyRef}>
-            <StoryView
-              day={day}
+        <div className="lg:grid lg:grid-cols-[20rem_minmax(0,1fr)] lg:items-start lg:gap-10">
+          {/* Desktop (lg+): ring left, story + quick capture right; mobile stays stacked. */}
+          {/* The Living Ring always comes first (§5.8); sticky beside the story on desktop. */}
+          <div className="lg:sticky lg:top-8">
+            <RingSection
               localDate={localDate}
               timezone={timezone}
-              onContinue={() => setView('capture')}
+              refreshToken={dayVersion}
               onChanged={() => void refreshDay('story')}
+              onShowStory={handleShowStory}
             />
           </div>
-          {/* Quick Capture sits after the day's value is on screen (§5.8). */}
-          <QuickCapture
-            localDate={localDate}
-            timezone={timezone}
-            onExtracted={(response) => handleExtracted(response, 'quick-add')}
-          />
-        </>
+          <div>
+            <div ref={storyRef}>
+              <StoryView
+                day={day}
+                localDate={localDate}
+                timezone={timezone}
+                onContinue={() => setView('capture')}
+                onChanged={() => void refreshDay('story')}
+              />
+            </div>
+            {/* Quick Capture sits after the day's value is on screen (§5.8). */}
+            <QuickCapture
+              localDate={localDate}
+              timezone={timezone}
+              onExtracted={(response) => handleExtracted(response, 'quick-add')}
+            />
+          </div>
+        </div>
       )}
     </div>
   );

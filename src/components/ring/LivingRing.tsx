@@ -62,7 +62,7 @@ export function LivingRing({
   const hoveredSegment = hoveredIndex >= 0 ? segments[hoveredIndex] : null;
 
   return (
-    <div className="relative mx-auto w-56 sm:w-64">
+    <div className="relative mx-auto w-56 sm:w-64 lg:w-72">
       <svg viewBox={`0 0 ${VIEWBOX} ${VIEWBOX}`} className="h-auto w-full overflow-visible">
         {segments.length === 0 && (
           <circle
