@@ -6,24 +6,28 @@
  * - ~8–10 colors sized for realistic category counts;
  * - because segment ordering is dynamic, any two colors can end up adjacent —
  *   every color must be distinguishable from every other one, not just its
- *   usual neighbors;
- * - color-blind aware: based on Paul Tol's "muted" scheme, designed to stay
- *   apart under common color-vision deficiencies by varying lightness and
- *   saturation alongside hue.
+ *   usual neighbors. This set favours saturated, well-separated hues (an
+ *   earlier muted scheme read as too similar in practice);
+ * - color-vision-deficiency aware: hues are spread around the wheel AND
+ *   lightness is deliberately varied (light cyan/pink vs. deep blue/violet), so
+ *   two colours that collide under red-green CVD still separate by brightness —
+ *   the second channel §5.2.3 asks for, not hue alone;
+ * - avoids the reserved neutral tones (routine / uncategorized / forgotten /
+ *   unaccounted) so a category is never confused with a gap.
  *
  * Categories beyond the palette get tonal variations (lighter/darker shades)
  * of the base colors rather than new, visually-similar hues.
  */
 export const DEFAULT_CATEGORY_PALETTE: readonly string[] = [
-  '#44aa99', // teal
-  '#332288', // indigo
-  '#cc6677', // rose
-  '#999933', // olive
-  '#88ccee', // light cyan
-  '#882255', // wine
-  '#ddcc77', // sand
-  '#117733', // green
-  '#aa4499', // purple
+  '#3b6fe0', // blue
+  '#e8552e', // vermilion
+  '#2fa84f', // green
+  '#c0399a', // magenta
+  '#7b3fe4', // violet
+  '#17c0d6', // cyan
+  '#e36fb0', // pink
+  '#12507a', // deep blue
+  '#8fb817', // lime
 ] as const;
 
 /** Neutral for routine (<1h) pauses: dark, silent, never draws the eye (§5.2.1). */

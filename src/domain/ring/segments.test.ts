@@ -177,6 +177,24 @@ describe('buildRingSegments — periods (§5.2.4)', () => {
     expect(forgotten[0].durationMinutes).toBe(120 + 180);
   });
 
+  it('omits the unaccounted remainder on multi-day periods (§5.2.4)', () => {
+    // Arrange — a sparse two-day window that would leave a huge remainder.
+    const days = [
+      day('2026-06-29', [
+        utcEvent({ start: '2026-06-29T09:00:00.000Z', end: '2026-06-29T10:00:00.000Z', category: 'Learning' }),
+      ]),
+      day('2026-06-30', [
+        utcEvent({ start: '2026-06-30T09:00:00.000Z', end: '2026-06-30T10:00:00.000Z', category: 'Learning' }),
+      ]),
+    ];
+
+    // Act
+    const ring = buildRingSegments(days, COLORS);
+
+    // Assert — no giant "Yet to tell" wedge across the period.
+    expect(ring.segments.some((segment) => segment.kind === 'unaccounted')).toBe(false);
+  });
+
   it('sums a category across days with the same fixed color (§5.2.4)', () => {
     // Arrange — Learning on both days
     const days = [

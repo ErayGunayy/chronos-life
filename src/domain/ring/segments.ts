@@ -17,10 +17,11 @@ import { colorForCategoryIndex } from '@/domain/ring/palette';
  *   individually fillable, §5.2.2); one combined segment across a period
  *   (§5.2.4) since a single question would not make sense there.
  *
- * The ring's whole circle is the full period — 24h per day (§5.2 / §5.8.4).
- * Whatever the story doesn't cover becomes one calm "unaccounted" wedge (the
- * night, the hours not yet told): an open invitation, never a judgment. It's
- * only added once something has been told — an empty day stays an empty ring.
+ * On the Today view the circle is the full 24h day (§5.2 / §5.8.4): whatever
+ * the story doesn't cover becomes one calm "unaccounted" wedge (the night, the
+ * hours not yet told) — an open invitation, never a judgment, and only once
+ * something has been told (an empty day stays an empty ring). Aggregate periods
+ * (week/month/year) omit that wedge and the circle is just the accounted time.
  * Ordering is dynamic and position is not sacred — recognizability is carried
  * by color, never by position (§5.2.3).
  */
@@ -185,10 +186,12 @@ export function buildRingSegments(
     }
   }
 
-  // The 24h ring: whatever the story doesn't cover becomes one calm wedge.
-  // Only when something was told — an empty day keeps its own gentle empty
-  // ring, never a full "unwritten" circle on day one.
-  if (segments.length > 0) {
+  // The 24h ring: whatever the today story doesn't cover becomes one calm
+  // wedge. Only for the single-day (Today) view, and only once something was
+  // told — an empty day keeps its gentle empty ring. Aggregate periods
+  // (week/month/year) omit it: a multi-day remainder is huge, swamps the ring,
+  // and says nothing useful (§5.2.4).
+  if (days.length === 1 && segments.length > 0) {
     const accountedMinutes = segments.reduce((sum, segment) => sum + segment.durationMinutes, 0);
     const remainder = periodTotalMinutes - accountedMinutes;
     if (remainder >= MIN_UNACCOUNTED_MINUTES) {
