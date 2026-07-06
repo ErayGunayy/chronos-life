@@ -42,7 +42,13 @@ export type RingSegmentView =
       readonly share: number;
     }
   | {
-      readonly kind: 'uncategorized' | 'routine-gap' | 'unremembered';
+      readonly kind: 'uncategorized';
+      readonly title: string;
+      readonly durationMinutes: number;
+      readonly share: number;
+    }
+  | {
+      readonly kind: 'routine-gap' | 'unremembered' | 'unaccounted';
       readonly durationMinutes: number;
       readonly share: number;
     }
@@ -61,7 +67,7 @@ export interface RingResponse {
   readonly fromDate: string;
   readonly timezone: string;
   readonly totalMinutes: number;
-  /** Minutes of remembered, substantive time (categories + not-yet-sorted). */
+  /** Minutes of remembered, substantive time (categories + uncategorized events). */
   readonly rememberedMinutes: number;
   readonly segments: readonly RingSegmentView[];
 }

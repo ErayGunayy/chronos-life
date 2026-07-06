@@ -59,8 +59,10 @@ describe('buildRingSegments — single day (§5.2.1–§5.2.3)', () => {
     // Act
     const ring = buildRingSegments([day('2026-07-01', events)], COLORS);
 
-    // Assert — order: Learning 120 > forgotten 90 > Family/Health/unremembered 60 > routine 30
+    // Assert — the day is 24h, so the un-narrated remainder (1440 − 420 = 1020)
+    // is the largest wedge and leads; the rest still order largest → smallest.
     expect(ring.segments.map((segment) => [segment.kind, segment.durationMinutes])).toEqual([
+      ['unaccounted', 1020],
       ['category', 120],
       ['forgotten', 90],
       ['category', 60],
@@ -68,13 +70,13 @@ describe('buildRingSegments — single day (§5.2.1–§5.2.3)', () => {
       ['unremembered', 60],
       ['routine-gap', 30],
     ]);
-    expect(ring.totalMinutes).toBe(420);
+    expect(ring.totalMinutes).toBe(1440);
 
     const shares = ring.segments.map((segment) => segment.share);
     expect(shares.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 10);
 
-    const learning = ring.segments[0];
-    if (learning.kind !== 'category') throw new Error('expected a category segment');
+    const learning = ring.segments.find((segment) => segment.kind === 'category');
+    if (learning?.kind !== 'category') throw new Error('expected a category segment');
     expect(learning.category).toBe('Learning');
     expect(learning.color).toBe(colorForCategoryIndex(0));
   });
@@ -110,17 +112,36 @@ describe('buildRingSegments — single day (§5.2.1–§5.2.3)', () => {
     const ring = buildRingSegments([day('2026-07-01', events)], COLORS);
 
     // Assert — 09:00–12:00 merged = 180, not 240
-    expect(ring.segments[0].durationMinutes).toBe(180);
+    const learning = ring.segments.find((segment) => segment.kind === 'category');
+    expect(learning?.durationMinutes).toBe(180);
   });
 
-  it('collects events without a category into one quiet segment', () => {
+  it('shows an uncategorized event as its own titled wedge, plus the day remainder', () => {
+    const event = utcEvent({ start: '2026-07-01T09:00:00.000Z', end: '2026-07-01T10:00:00.000Z' });
+    const ring = buildRingSegments([day('2026-07-01', [event])], COLORS);
+
+    const uncategorized = ring.segments.find((segment) => segment.kind === 'uncategorized');
+    if (uncategorized?.kind !== 'uncategorized') throw new Error('expected an uncategorized segment');
+    expect(uncategorized.title).toBe(event.title);
+    expect(uncategorized.durationMinutes).toBe(60);
+
+    // 24h day: the untold rest of the day fills the ring, gently.
+    const unaccounted = ring.segments.find((segment) => segment.kind === 'unaccounted');
+    expect(unaccounted?.durationMinutes).toBe(1440 - 60);
+    expect(ring.totalMinutes).toBe(1440);
+  });
+
+  it('keeps each uncategorized event separate — never one anonymous blob', () => {
+    // Two uncategorized events with a ≥1h gap between them.
     const events = [
       utcEvent({ start: '2026-07-01T09:00:00.000Z', end: '2026-07-01T10:00:00.000Z' }),
+      utcEvent({ start: '2026-07-01T14:00:00.000Z', end: '2026-07-01T15:00:00.000Z' }),
     ];
     const ring = buildRingSegments([day('2026-07-01', events)], COLORS);
-    expect(ring.segments).toEqual([
-      { kind: 'uncategorized', durationMinutes: 60, share: 1 },
-    ]);
+
+    const uncategorized = ring.segments.filter((segment) => segment.kind === 'uncategorized');
+    expect(uncategorized).toHaveLength(2);
+    expect(uncategorized.map((segment) => segment.durationMinutes)).toEqual([60, 60]);
   });
 
   it('returns an empty ring for an empty day — never a fake segment', () => {
@@ -171,8 +192,9 @@ describe('buildRingSegments — periods (§5.2.4)', () => {
     const ring = buildRingSegments(days, COLORS);
 
     // Assert
-    expect(ring.segments).toHaveLength(1);
-    const learning = ring.segments[0];
+    const categories = ring.segments.filter((segment) => segment.kind === 'category');
+    expect(categories).toHaveLength(1);
+    const learning = categories[0];
     if (learning.kind !== 'category') throw new Error('expected a category segment');
     expect(learning.durationMinutes).toBe(180);
     expect(learning.color).toBe(colorForCategoryIndex(0));
@@ -192,6 +214,7 @@ describe('buildRingSegments — periods (§5.2.4)', () => {
     const ring = buildRingSegments(days, COLORS);
 
     // Assert — 120 real minutes, not 240
-    expect(ring.segments[0].durationMinutes).toBe(120);
+    const family = ring.segments.find((segment) => segment.kind === 'category');
+    expect(family?.durationMinutes).toBe(120);
   });
 });

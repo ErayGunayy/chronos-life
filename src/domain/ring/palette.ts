@@ -47,6 +47,14 @@ export const RING_UNCATEGORIZED_COLOR = '#a89a85';
 export const RING_FORGOTTEN_ACCENT = '#a97f33';
 
 /**
+ * The un-narrated remainder of the 24h day — the part of the period a story
+ * doesn't cover yet (the night, hours not told). A faint warm neutral so this
+ * (often the largest) wedge recedes into the background instead of dominating:
+ * an open invitation ("Yet to tell"), never a judgment (§5.2 / §5.8.4).
+ */
+export const RING_UNACCOUNTED_COLOR = '#c9c2b4';
+
+/**
  * Neutral, static color for an *answered* "I don't remember" record (§6.4) —
  * deliberately NOT the amber above. §5.2.1 only specs the ring's routine-gap
  * vs. Forgotten-Moment treatment; it never mandated reusing the amber for

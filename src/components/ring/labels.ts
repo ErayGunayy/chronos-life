@@ -2,6 +2,7 @@ import type { RingSegmentView } from '@/app/api/ring/handler';
 import {
   RING_FORGOTTEN_ACCENT,
   RING_ROUTINE_COLOR,
+  RING_UNACCOUNTED_COLOR,
   RING_UNCATEGORIZED_COLOR,
   RING_UNREMEMBERED_COLOR,
 } from '@/domain/ring/palette';
@@ -12,11 +13,15 @@ export function segmentLabel(segment: RingSegmentView): string {
     case 'category':
       return segment.category;
     case 'uncategorized':
-      return 'Not yet sorted';
+      // The event's own title — each uncategorized moment shows as itself.
+      return segment.title;
     case 'routine-gap':
       return 'Quiet pauses';
     case 'unremembered':
       return 'Unremembered time';
+    case 'unaccounted':
+      // The un-narrated rest of the day — inviting, never "you failed to log".
+      return 'Yet to tell';
     case 'forgotten':
       return 'Still unwritten';
   }
@@ -32,6 +37,8 @@ export function segmentColor(segment: RingSegmentView): string {
       return RING_ROUTINE_COLOR;
     case 'unremembered':
       return RING_UNREMEMBERED_COLOR;
+    case 'unaccounted':
+      return RING_UNACCOUNTED_COLOR;
     case 'forgotten':
       return RING_FORGOTTEN_ACCENT;
   }

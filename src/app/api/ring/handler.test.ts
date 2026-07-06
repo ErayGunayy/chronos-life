@@ -86,7 +86,9 @@ describe('handleRingRequest', () => {
     expect(learning).toMatchObject({ color: DEFAULT_CATEGORY_PALETTE[0], durationMinutes: 120 });
     expect(health).toMatchObject({ color: DEFAULT_CATEGORY_PALETTE[1], durationMinutes: 60 });
 
-    expect(segments[0]).toBe(learning); // largest → smallest, from 12 o'clock
+    // Largest → smallest among the told activities (the 24h remainder leads).
+    const categories = segments.filter((s) => s.kind === 'category');
+    expect(categories[0]).toBe(learning);
     const shareSum = segments.reduce((sum, s) => sum + s.share, 0);
     expect(shareSum).toBeCloseTo(1);
 
@@ -169,9 +171,10 @@ describe('handleRingRequest', () => {
 
     const { body } = await handleRingRequest({ date: DATE, tz: TZ, period: 'today' }, events, state, USER);
 
+    // The 24h remainder leads; remembered minutes still exclude the unremembered hour.
     const kinds = (body.data?.segments ?? []).map((s) => s.kind);
-    expect(kinds).toEqual(['category', 'unremembered']);
-    expect(body.data?.totalMinutes).toBe(180);
+    expect(kinds).toEqual(['unaccounted', 'category', 'unremembered']);
+    expect(body.data?.totalMinutes).toBe(1440);
     expect(body.data?.rememberedMinutes).toBe(120);
   });
 });
