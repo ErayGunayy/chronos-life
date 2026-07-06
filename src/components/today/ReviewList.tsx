@@ -3,7 +3,7 @@
 import { useState } from 'react';
 
 import type { CaptureResponse } from '@/app/api/capture/handler';
-import { commitMemories } from '@/components/today/api';
+import { commitMemories, type MemoryCommitItem } from '@/components/today/api';
 import { fieldLabel, ghostButton, primaryButton, quietButton, textInput } from '@/components/today/ui';
 
 const APPROXIMATE_TIME_THRESHOLD = 0.6;
@@ -26,9 +26,18 @@ type Props = {
   timezone: string;
   onCommitted: () => void;
   onBack: () => void;
+  /** How the confirmed memories are recorded — the full story vs. a quick add. */
+  source?: MemoryCommitItem['source'];
 };
 
-export function ReviewList({ response, localDate, timezone, onCommitted, onBack }: Props) {
+export function ReviewList({
+  response,
+  localDate,
+  timezone,
+  onCommitted,
+  onBack,
+  source = 'life-conversation',
+}: Props) {
   const [items, setItems] = useState<EditableCandidate[]>(() =>
     response.candidates.map((candidate) => ({
       title: candidate.title,
@@ -75,7 +84,7 @@ export function ReviewList({ response, localDate, timezone, onCommitted, onBack 
             .map((person) => person.trim())
             .filter((person) => person.length > 0),
           place: item.place.trim() === '' ? null : item.place.trim(),
-          source: 'life-conversation' as const,
+          source,
         })),
       );
       onCommitted();

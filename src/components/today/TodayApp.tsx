@@ -6,8 +6,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CaptureResponse } from '@/app/api/capture/handler';
 import type { DayResponse } from '@/app/api/day/handler';
 import { RingSection } from '@/components/ring/RingSection';
-import { fetchDay } from '@/components/today/api';
+import { fetchDay, type MemoryCommitItem } from '@/components/today/api';
 import { CaptureForm } from '@/components/today/CaptureForm';
+import { QuickCapture } from '@/components/today/QuickCapture';
 import { ReviewList } from '@/components/today/ReviewList';
 import { StoryView } from '@/components/today/StoryView';
 
@@ -23,6 +24,7 @@ export function TodayApp() {
   const [view, setView] = useState<View>('loading');
   const [day, setDay] = useState<DayResponse | null>(null);
   const [review, setReview] = useState<CaptureResponse | null>(null);
+  const [reviewSource, setReviewSource] = useState<MemoryCommitItem['source']>('life-conversation');
   const [error, setError] = useState<string | null>(null);
   // Bumped on every day (re)load so the ring refetches alongside the story.
   const [dayVersion, setDayVersion] = useState(0);
@@ -78,8 +80,9 @@ export function TodayApp() {
     });
   }, []);
 
-  const handleExtracted = (response: CaptureResponse) => {
+  const handleExtracted = (response: CaptureResponse, source: MemoryCommitItem['source']) => {
     setReview(response);
+    setReviewSource(source);
     setView('review');
   };
 
@@ -140,7 +143,7 @@ export function TodayApp() {
         <CaptureForm
           localDate={localDate}
           timezone={timezone}
-          onExtracted={handleExtracted}
+          onExtracted={(response) => handleExtracted(response, 'life-conversation')}
           onCancel={hasStory ? () => setView('story') : undefined}
         />
       )}
@@ -150,6 +153,7 @@ export function TodayApp() {
           response={review}
           localDate={localDate}
           timezone={timezone}
+          source={reviewSource}
           onCommitted={handleCommitted}
           onBack={() => setView('capture')}
         />
@@ -174,6 +178,12 @@ export function TodayApp() {
               onChanged={() => void refreshDay('story')}
             />
           </div>
+          {/* Quick Capture sits after the day's value is on screen (§5.8). */}
+          <QuickCapture
+            localDate={localDate}
+            timezone={timezone}
+            onExtracted={(response) => handleExtracted(response, 'quick-add')}
+          />
         </>
       )}
     </div>

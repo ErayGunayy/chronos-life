@@ -4,7 +4,10 @@ import { useState } from 'react';
 
 import type { CaptureResponse } from '@/app/api/capture/handler';
 import { extractStory } from '@/components/today/api';
+import { MicButton } from '@/components/today/MicButton';
+import { appendTranscript } from '@/components/today/transcript';
 import { ghostButton, primaryButton } from '@/components/today/ui';
+import { useSpeechRecognition } from '@/components/today/useSpeechRecognition';
 
 type Props = {
   localDate: string;
@@ -18,9 +21,14 @@ export function CaptureForm({ localDate, timezone, onExtracted, onCancel }: Prop
   const [isBusy, setIsBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const speech = useSpeechRecognition({
+    onFinalSegment: (segment) => setNarrative((prev) => appendTranscript(prev, segment)),
+  });
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (narrative.trim() === '' || isBusy) return;
+    if (speech.isListening) speech.stop();
     setIsBusy(true);
     setError(null);
     try {
@@ -42,6 +50,15 @@ export function CaptureForm({ localDate, timezone, onExtracted, onCancel }: Prop
         </p>
       </div>
 
+      {speech.isSupported && (
+        <div className="flex items-center gap-3">
+          <MicButton isListening={speech.isListening} onToggle={speech.toggle} />
+          <span className="text-sm text-muted">
+            {speech.isListening ? 'Listening… speak naturally.' : 'Or tap to talk instead of typing.'}
+          </span>
+        </div>
+      )}
+
       <textarea
         value={narrative}
         onChange={(event) => setNarrative(event.target.value)}
@@ -52,15 +69,19 @@ export function CaptureForm({ localDate, timezone, onExtracted, onCancel }: Prop
         className="w-full resize-y rounded-xl border border-line bg-card px-4 py-3 text-base leading-7 text-foreground shadow-sm placeholder:text-muted/60 focus:border-accent focus:outline-none"
       />
 
-      {error && (
+      {speech.isListening && speech.interimText && (
+        <p className="text-sm italic text-muted">{speech.interimText}</p>
+      )}
+
+      {(error || speech.error) && (
         <p role="alert" className="text-sm text-accent">
-          {error}
+          {error ?? speech.error}
         </p>
       )}
 
       <div className="flex items-center gap-3">
         <button type="submit" disabled={isBusy || narrative.trim() === ''} className={primaryButton}>
-          {isBusy ? 'Listening…' : 'Listen to my story'}
+          {isBusy ? 'Reading…' : 'Listen to my story'}
         </button>
         {onCancel && (
           <button type="button" onClick={onCancel} className={ghostButton}>

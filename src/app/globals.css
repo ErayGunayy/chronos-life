@@ -122,6 +122,25 @@ body {
   animation: ring-reveal 550ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+/*
+ * Voice capture "listening" state (§5.8.3): a slow, soft halo on the mic so
+ * it reads as live without shouting — same calm-motion intent as the ring.
+ * Reduced-motion users get the resting (halo-less) state via the rule below.
+ */
+@keyframes mic-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 0%, transparent);
+  }
+}
+
+.mic-pulse {
+  animation: mic-pulse 2s ease-in-out infinite;
+}
+
 /* Calm technology: motion is subtle and always optional (§5.2). */
 @media (prefers-reduced-motion: reduce) {
   *,
