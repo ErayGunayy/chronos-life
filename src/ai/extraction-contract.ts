@@ -41,7 +41,10 @@ export type ExtractionOutput = z.infer<typeof ExtractionOutputSchema>;
  * saved with a fake time.
  */
 export function normalizeLocalTime(raw: string): string | null {
-  const match = /^(\d{1,2}):(\d{1,2})(?::\d{1,2})?$/.exec(raw.trim());
+  // Pull the first H:MM out of the string — handles plain "9:00"/"09:00:00" and
+  // full ISO datetimes some models return ("2026-07-08T09:00:00"). Dates use "-",
+  // so the first colon-separated pair is always the clock time.
+  const match = /(\d{1,2}):(\d{1,2})/.exec(raw.trim());
   if (!match) return null;
   let hour = Number(match[1]);
   const minute = Number(match[2]);
@@ -90,7 +93,7 @@ export function buildExtractionSystemPrompt(request: ExtractionRequest): string 
     '',
     'Non-negotiable rules:',
     '- NEVER invent events, times, people, places, or details the story does not contain.',
-    `- Times are the narrator's wall clock on ${request.localDate} in ${request.timezone}. If a time is approximate ("around nine") or inferred from narrative order, still fill it in, but set timeConfidence at or below 0.6 — never pretend precision. If an event cannot be placed in time at all, leave it out of candidates and mention it briefly in note.`,
+    `- Times are the narrator's wall clock on ${request.localDate} in ${request.timezone}. Write startLocalTime and endLocalTime as a 24-hour HH:MM clock time ONLY (e.g. "09:00", "21:30") — never a date, never seconds, never a range. If a time is approximate ("around nine") or inferred from narrative order or time-of-day words ("in the morning", "sabah", "akşam"), still fill it in with your best estimate, but set timeConfidence at or below 0.6 — never pretend precision. Only leave an event out (and note it) if it truly cannot be placed in the day at all.`,
     '- An endLocalTime earlier than startLocalTime means the moment ended the next day.',
     '- categoryConfidence and timeConfidence are honest 0..1 calibrations. Suggest a short human category ("Work", "Family", "Rest", ...) only when reasonably clear; otherwise leave category and categoryConfidence null.',
     '- people: only people the story mentions. place: only if stated.',

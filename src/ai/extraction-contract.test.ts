@@ -29,6 +29,11 @@ describe('normalizeLocalTime', () => {
     expect(normalizeLocalTime('09:00:00')).toBe('09:00');
   });
 
+  it('extracts HH:MM from a full ISO datetime (what some models return)', () => {
+    expect(normalizeLocalTime('2026-07-08T09:00:00')).toBe('09:00');
+    expect(normalizeLocalTime('2026-07-08T21:30:00Z')).toBe('21:30');
+  });
+
   it('maps 24:00 to midnight', () => {
     expect(normalizeLocalTime('24:00')).toBe('00:00');
   });
