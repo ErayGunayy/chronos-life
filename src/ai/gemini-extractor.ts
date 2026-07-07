@@ -15,7 +15,9 @@ import type { ExtractionRequest, ExtractionResult } from '@/domain/capture/types
  * times and fields come back reliably even on the fast Flash models.
  */
 
-export const DEFAULT_GEMINI_MODEL = 'gemini-2.0-flash';
+// gemini-2.5-flash has free-tier quota where 2.0-flash can be limit-0 on some
+// projects/regions; capable and fast enough for extraction. Override via env.
+export const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
 export const DEFAULT_GEMINI_HOST = 'https://generativelanguage.googleapis.com';
 
 /**

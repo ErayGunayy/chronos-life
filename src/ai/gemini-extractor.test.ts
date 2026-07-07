@@ -58,15 +58,15 @@ describe('GeminiExtractor (contract, mocked client)', () => {
     expect(call.body.generationConfig.responseSchema).toBeTypeOf('object');
   });
 
-  test('uses the configured model, defaulting to gemini-2.0-flash', async () => {
+  test('uses the configured model, defaulting to gemini-2.5-flash', async () => {
     const generate = respondWith(output);
     await new GeminiExtractor({ client: fakeClient(generate) }).extract(request);
-    expect(generate.mock.calls[0][0].model).toBe('gemini-2.0-flash');
+    expect(generate.mock.calls[0][0].model).toBe('gemini-2.5-flash');
 
-    await new GeminiExtractor({ client: fakeClient(generate), model: 'gemini-2.5-flash' }).extract(
+    await new GeminiExtractor({ client: fakeClient(generate), model: 'gemini-flash-latest' }).extract(
       request,
     );
-    expect(generate.mock.calls[1][0].model).toBe('gemini-2.5-flash');
+    expect(generate.mock.calls[1][0].model).toBe('gemini-flash-latest');
   });
 
   test('encodes the no-invention guardrail and keeps the narrator’s language', async () => {
