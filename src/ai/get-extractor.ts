@@ -3,6 +3,7 @@ import 'server-only';
 import Anthropic from '@anthropic-ai/sdk';
 
 import { ClaudeExtractor, type MinimalAnthropicClient } from '@/ai/claude-extractor';
+import { GeminiExtractor, createHttpGeminiClient } from '@/ai/gemini-extractor';
 import type { LifeEventExtractor } from '@/ai/life-event-extractor';
 import {
   OllamaExtractor,
@@ -17,10 +18,10 @@ let cached: LifeEventExtractor | null = null;
  * The only place provider config is read — server-only by import guard.
  *
  * Selection (CLAUDE.md §8, extraction is swappable):
- * - CHRONOS_EXTRACTOR forces a provider when set ('ollama' | 'claude' | 'stub').
- * - Otherwise: an Anthropic key → Claude; else an Ollama model → local Ollama;
- *   else the deterministic stub, so dev flows keep working offline and are
- *   honestly labelled as non-AI.
+ * - CHRONOS_EXTRACTOR forces a provider when set ('claude' | 'gemini' | 'ollama' | 'stub').
+ * - Otherwise: an Anthropic key → Claude; else a Gemini key → Gemini; else an
+ *   Ollama model → local Ollama; else the deterministic stub, so dev flows keep
+ *   working offline and are honestly labelled as non-AI.
  */
 export function getExtractor(): LifeEventExtractor {
   if (cached) return cached;
@@ -31,18 +32,31 @@ export function getExtractor(): LifeEventExtractor {
 function buildExtractor(): LifeEventExtractor {
   const forced = process.env.CHRONOS_EXTRACTOR?.trim().toLowerCase();
   const apiKey = process.env.ANTHROPIC_API_KEY;
+  const geminiKey = process.env.GEMINI_API_KEY;
   const ollamaModel = process.env.CHRONOS_OLLAMA_MODEL;
 
   if (forced === 'stub') return new StubExtractor();
   if (forced === 'ollama') return buildOllama(ollamaModel);
+  if (forced === 'gemini') {
+    if (!geminiKey) throw new Error('CHRONOS_EXTRACTOR=gemini but GEMINI_API_KEY is not set');
+    return buildGemini(geminiKey);
+  }
   if (forced === 'claude') {
     if (!apiKey) throw new Error('CHRONOS_EXTRACTOR=claude but ANTHROPIC_API_KEY is not set');
     return buildClaude(apiKey);
   }
 
   if (apiKey) return buildClaude(apiKey);
+  if (geminiKey) return buildGemini(geminiKey);
   if (ollamaModel) return buildOllama(ollamaModel);
   return new StubExtractor();
+}
+
+function buildGemini(apiKey: string): LifeEventExtractor {
+  return new GeminiExtractor({
+    client: createHttpGeminiClient(apiKey),
+    model: process.env.CHRONOS_GEMINI_MODEL || undefined,
+  });
 }
 
 function buildClaude(apiKey: string): LifeEventExtractor {

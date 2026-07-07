@@ -277,6 +277,11 @@ const PROVENANCE: Record<
     title: 'These candidates were read from your story by Claude.',
     isAi: true,
   },
+  gemini: {
+    label: 'Read by AI',
+    title: 'These candidates were read from your story by Gemini.',
+    isAi: true,
+  },
   ollama: {
     label: 'Read by AI · on your device',
     title: 'These candidates were read from your story by a local model — nothing left your device.',
