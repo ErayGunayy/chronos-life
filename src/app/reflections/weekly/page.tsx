@@ -1,6 +1,7 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 
-import { getRepository } from '@/data/get-repository';
+import { resolveDataContext } from '@/data/data-context';
 import {
   firstWeekMessage,
   quietWeekMessage,
@@ -12,7 +13,6 @@ import {
   weeklyPatterns,
   type DayGapSummary,
 } from '@/domain/patterns/engine';
-import { DEV_USER_ID } from '@/lib/dev-user';
 import { dayBoundsUtc } from '@/lib/time/day-bounds';
 
 export const dynamic = 'force-dynamic';
@@ -24,13 +24,15 @@ export const dynamic = 'force-dynamic';
  */
 export default async function WeeklyReflectionPage() {
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-  const repository = getRepository();
+  const context = await resolveDataContext().catch(() => null);
+  if (!context) redirect('/login');
+  const { events: repository, userId } = context;
 
   const summaries: DayGapSummary[] = [];
   for (let offset = 6; offset >= 0; offset -= 1) {
     const localDate = localDateDaysAgo(offset, timezone);
     const bounds = dayBoundsUtc(localDate, timezone);
-    const events = await repository.listBetween(DEV_USER_ID, bounds.fromUtc, bounds.toUtc);
+    const events = await repository.listBetween(userId, bounds.fromUtc, bounds.toUtc);
     if (events.length > 0) {
       summaries.push(summarizeDayGaps(localDate, events, timezone));
     }

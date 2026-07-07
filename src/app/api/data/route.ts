@@ -1,13 +1,13 @@
 import { handleDeleteAllData } from '@/app/api/data/handler';
-import { getRepository } from '@/data/get-repository';
-import { getStateRepository } from '@/data/get-state-repository';
-import { DEV_USER_ID } from '@/lib/dev-user';
+import { resolveDataContext, UnauthorizedError, unauthorizedResponse } from '@/data/data-context';
 
 export async function DELETE(): Promise<Response> {
-  const { status, body } = await handleDeleteAllData(
-    getRepository(),
-    getStateRepository(),
-    DEV_USER_ID,
-  );
-  return Response.json(body, { status });
+  try {
+    const { events, state, userId } = await resolveDataContext();
+    const { status, body } = await handleDeleteAllData(events, state, userId);
+    return Response.json(body, { status });
+  } catch (error) {
+    if (error instanceof UnauthorizedError) return unauthorizedResponse();
+    throw error;
+  }
 }

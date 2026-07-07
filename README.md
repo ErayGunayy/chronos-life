@@ -96,6 +96,32 @@ Selection logic (in `src/ai/get-extractor.ts`):
 
 ---
 
+## Accounts & backend (optional)
+
+With **no Supabase env set, the app runs in single-user local mode** — file-backed in
+`.chronos-data/`, no login. To turn on **Google sign-in + per-user Supabase persistence** (RLS
+isolates each account), set both:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon-or-publishable-key>
+```
+
+The database schema (`life_events`, `user_state`, RLS on both) is applied via Supabase migrations.
+**Google OAuth is the one part that must be set up by hand** (needs Google Cloud + the Supabase
+dashboard):
+
+1. **Google Cloud Console** → APIs & Services → Credentials → *OAuth 2.0 Client ID* (Web).
+   Authorized redirect URI: `https://<project-ref>.supabase.co/auth/v1/callback`.
+2. **Supabase** → Authentication → Providers → **Google**: paste the client ID + secret, enable.
+3. **Supabase** → Authentication → URL Configuration: Site URL `http://localhost:3000` (add your
+   production URL later), and add `http://localhost:3000/auth/callback` to the redirect allow-list.
+4. Put the two `NEXT_PUBLIC_SUPABASE_*` values in `.env.local` (see `.env.example`).
+
+Runtime uses only the anon/publishable key + the signed-in user's session — no service-role key.
+
+---
+
 ## Scripts
 
 ```bash
