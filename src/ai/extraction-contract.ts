@@ -33,21 +33,46 @@ export const ExtractionOutputSchema = z.object({
 export type ExtractionOutput = z.infer<typeof ExtractionOutputSchema>;
 
 /**
- * Validates raw model output and returns candidates sorted by start time.
- * Anything that does not match the schema becomes a typed ExtractionError so a
- * malformed model response is a friendly retry, never a crash or a false memory.
+ * Coerces a model's time string to strict zero-padded HH:MM, or null when it
+ * can't be placed in time. Models return valid-but-loose times ("9:00",
+ * "09:00:00", "24:00" for midnight) that the commit-time schema (strict HH:MM)
+ * rejects — this normalizes them so a good memory isn't lost to a formatting
+ * quirk. Returns null for empty/garbage so such a candidate is dropped, not
+ * saved with a fake time.
+ */
+export function normalizeLocalTime(raw: string): string | null {
+  const match = /^(\d{1,2}):(\d{1,2})(?::\d{1,2})?$/.exec(raw.trim());
+  if (!match) return null;
+  let hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour === 24 && minute === 0) hour = 0; // midnight written as 24:00
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+/**
+ * Validates raw model output and returns candidates sorted by start time, with
+ * times normalized to strict HH:MM. Anything that does not match the schema
+ * becomes a typed ExtractionError so a malformed model response is a friendly
+ * retry, never a crash or a false memory; a candidate whose times can't be
+ * placed at all is dropped (the prompt already asks the model to omit these).
  */
 export function toExtractionResult(rawOutput: unknown): ExtractionResult {
   const parsed = ExtractionOutputSchema.safeParse(rawOutput);
   if (!parsed.success) {
     throw new ExtractionError(USER_SAFE_FAILURE, { cause: parsed.error });
   }
-  return {
-    candidates: [...parsed.data.candidates].sort((a, b) =>
-      a.startLocalTime.localeCompare(b.startLocalTime),
-    ),
-    note: parsed.data.note,
-  };
+
+  const candidates = parsed.data.candidates.flatMap((candidate) => {
+    const startLocalTime = normalizeLocalTime(candidate.startLocalTime);
+    const endLocalTime = normalizeLocalTime(candidate.endLocalTime);
+    if (startLocalTime === null || endLocalTime === null) return [];
+    return [{ ...candidate, startLocalTime, endLocalTime }];
+  });
+
+  candidates.sort((a, b) => a.startLocalTime.localeCompare(b.startLocalTime));
+
+  return { candidates, note: parsed.data.note };
 }
 
 /** The user turn: the story exactly as told, anchored to its local day. */
