@@ -1,14 +1,12 @@
 @import "tailwindcss";
 
 /*
- * Chronos Design System — "warm paper" refinement (Session 25, evolving the
- * Session 24 green-anchored system; see CLAUDE.md §8 and the Design Decision
- * Log). Deep-green accent and the disciplined Notion/Linear/Apple restraint are
- * kept — color stays reserved for the ring, progress, active controls and
- * status — but the paper is warmed a touch and the brand/display face is a
- * warm literary serif (Fraunces) rather than a neutral sans, so the product
- * reads like a journal, not a productivity tool. Inter still carries UI/body.
- * Light is the default; dark follows the OS's prefers-color-scheme below.
+ * Chronos Design System (decided 2026-07-10; see CLAUDE.md §8 "App theme
+ * palette" and the Design Decision Log Session 24, superseding the earlier
+ * "Quiet Teal"). Clean off-white paper + a single deep-green accent, Notion/
+ * Linear/Apple restraint: color is reserved for the ring, progress, active
+ * controls and status. Inter for UI, Geist (bold) for the brand. Light is the
+ * default; dark follows the OS's prefers-color-scheme below — no manual toggle.
  *
  * --question (the "unwritten time" amber) is kept in sync with
  * RING_FORGOTTEN_ACCENT in src/domain/ring/palette.ts — the same concept, used
@@ -16,16 +14,16 @@
  * can't read a TS constant), so changing one should prompt checking the other.
  */
 :root {
-  --background: #f8f6f1; /* warm off-white paper */
-  --surface: #efece4; /* secondary background — grouped / inset fills */
-  --card: #fffdf9; /* warm white, lifts off the paper */
-  --foreground: #1e1c19; /* warm near-black, high contrast retained */
-  --muted: #6c6862; /* warm grey */
-  --line: #e6e1d7; /* warm hairline */
+  --background: #fafaf8;
+  --surface: #f3f3f1; /* secondary background — grouped / inset fills */
+  --card: #ffffff;
+  --foreground: #161616;
+  --muted: #6f6f6f;
+  --line: #e4e4e4;
 
   --accent: #295e4a;
   --accent-ink: #f1f7f4; /* text / icon on the accent */
-  --accent-soft: #dde7e0; /* soft accent fill for active states */
+  --accent-soft: #dce8e1; /* soft accent fill for active states */
 
   --success: #43a047;
   --warning: #e59b28;
@@ -35,17 +33,17 @@
   --question-bg: #fbf0dc;
   --question-line: #efd9a9;
 
-  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
+  --font-display: var(--font-geist-sans), system-ui, sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #121110; /* warm near-black ground */
-    --surface: #201e1c;
-    --card: #1a1917;
-    --foreground: #f4f1ea; /* warm off-white ink */
-    --muted: #a7a29a;
-    --line: #2c2a27;
+    --background: #101112;
+    --surface: #202123;
+    --card: #18191b;
+    --foreground: #f5f5f5;
+    --muted: #a7a7a7;
+    --line: #2b2c2e;
 
     --accent: #4f9d7c;
     --accent-ink: #0e1a15;
@@ -96,8 +94,7 @@ body {
 
 .font-display {
   font-family: var(--font-display);
-  font-weight: 600; /* Fraunces reads elegant at semibold across heading sizes */
-  letter-spacing: -0.01em;
+  font-weight: 700;
 }
 
 /*
