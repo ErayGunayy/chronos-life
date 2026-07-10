@@ -474,26 +474,32 @@ Surfaced only in Weekly/Monthly/Yearly reflection views, always as an open quest
 - **Time model.** Store a UTC instant + IANA timezone. A "day" = the user's local calendar day; gaps are computed only *between* the first and last recorded event of that day (so unnarrated sleep/night is never flagged as forgotten). Patterns are keyed by **hour-of-day bucket** (§6.6), not by weekday. Note (2026-07-03): §5.8.4 later makes sleep a semi-automatic LifeEvent; once that lands, the sleep block bounds the day as a real event and this between-first-and-last-event scope needs revisiting. Update (2026-07-06): on the **Today** view the Living Ring's *circle* is the full 24h day, with the un-narrated remainder shown as one calm "unaccounted" wedge (§9 Sessions 18, 20); **aggregate periods (week/month/year) omit that wedge** — their circle is just the accounted time, since a multi-day remainder would swamp the ring (§9 Session 20). This only ever changed the ring's denominator — *gap detection* is unchanged (still between-events), so the sleep caveat above still stands for Forgotten Moments specifically.
 - **Ownership primitives are first-class (§5.11).** Export (JSON + Markdown in v0) and real deletion (event / day / everything) are built at the data layer, not bolted on afterward.
 
-### App theme palette (v0)
-Decided 2026-07-04, distinct from the Living Ring's category palette (§5.2.3, decided separately — the ring's 9 category colors are untouched by this). Direction: **"Quiet Teal"** — warm-neutral paper surfaces, a single desaturated teal accent for actions, amber reserved for the "unwritten time" concept. Implemented as CSS custom properties in `src/app/globals.css`; light is `:root`, dark follows the OS's `prefers-color-scheme` (no manual toggle in v0 — every Tailwind utility already resolves through these variables via `@theme inline`, so no component changes were needed to add dark mode).
+### App theme palette — "Chronos Design System"
+Adopted 2026-07-10 (§9 Session 24), **superseding "Quiet Teal."** Direction: clean off-white paper + a single **deep-green** accent, Notion/Linear/Apple restraint — color is reserved for the ring, progress, active controls and status. **Inter** for UI/body, **Geist** (bold) for the brand/display (`src/app/layout.tsx`). Implemented as CSS custom properties in `src/app/globals.css`; light is `:root`, dark follows the OS's `prefers-color-scheme` (no manual toggle — every Tailwind utility resolves through these variables via `@theme inline`, so the theme swap needed no component changes). Also set via `@theme`: an 18px house radius (`--radius-xl`, on cards/dialogs) and an 8pt-friendly radius scale.
 
 | Token | Light | Dark |
 |---|---|---|
-| `--background` | `#f5f4f1` | `#1a1918` |
-| `--foreground` | `#262624` | `#ece9e4` |
-| `--muted` | `#83807a` | `#928d84` |
-| `--line` | `#e1ded7` | `#302e2a` |
-| `--card` | `#fdfcfa` | `#211f1c` |
-| `--accent` | `#3f6b64` | `#6fa89f` |
-| `--accent-ink` | `#eef6f4` | `#12211d` |
-| `--accent-soft` | `#dce9e6` | `#253a36` |
-| `--question` | `#a97f33` | `#d9a655` |
-| `--question-bg` | `#faf1de` | `#2c2417` |
-| `--question-line` | `#e6d2a4` | `#4a3c22` |
+| `--background` | `#fafaf8` | `#101112` |
+| `--surface` (secondary bg) | `#f3f3f1` | `#202123` |
+| `--card` | `#ffffff` | `#18191b` |
+| `--foreground` | `#161616` | `#f5f5f5` |
+| `--muted` | `#6f6f6f` | `#a7a7a7` |
+| `--line` | `#e4e4e4` | `#2b2c2e` |
+| `--accent` | `#295e4a` | `#4f9d7c` |
+| `--accent-ink` | `#f1f7f4` | `#0e1a15` |
+| `--accent-soft` | `#dce8e1` | `#22352c` |
+| `--success` | `#43a047` | `#55c07a` |
+| `--warning` | `#e59b28` | `#f1a63b` |
+| `--error` | `#d94a4a` | `#e06a6a` |
+| `--question` | `#e59b28` | `#f1a63b` |
+| `--question-bg` | `#fbf0dc` | `#2c2417` |
+| `--question-line` | `#efd9a9` | `#4a3c22` |
 
-`--question` is now identical to the Living Ring's `RING_FORGOTTEN_ACCENT` (`src/domain/ring/palette.ts`) — previously these were two independently-hardcoded ambers (`#96690a` vs `#a97f33`) for the same "unwritten time" concept. They remain two separately-maintained literals (a CSS custom property can't be read by the TS domain layer without new build tooling), cross-referenced by comment in both files.
+`--question` (the "unwritten time" amber) equals the Living Ring's `RING_FORGOTTEN_ACCENT` (`src/domain/ring/palette.ts`); they remain two separately-maintained literals (a CSS custom property can't be read by the TS domain layer), cross-referenced by comment in both files.
 
-**Known follow-up, not yet done:** the Ring's own colors (category palette, routine/uncategorized/forgotten accents) are plain TS hex constants baked into SVG `stroke` values — they don't route through `var(--...)` and so don't participate in this dark-mode switch. Verify the Ring still reads clearly on the dark background; if not, migrating Ring colors to CSS custom properties would let them inherit the same light/dark mechanism.
+**Ring category palette (§5.2.3) is green-anchored to match this system:** `DEFAULT_CATEGORY_PALETTE` leads with the deep-green accent as category 1, then muted premium hues chosen to stay mutually distinct and CVD-safe (per the design decision, over a pure monochrome-green ramp, which failed §5.2.3's distinctness rule). "Sleep = grey" from the raw design brief is deliberately **not** a palette default — grey belongs to the gap states; Sleep gets a normal palette hue.
+
+**Known follow-up, still not done:** the Ring's own colors (category palette + gap neutrals + forgotten accent) are plain TS hex constants baked into SVG `stroke` values — they don't route through `var(--...)`, so they use a single value on both themes rather than switching. They were chosen to read on both the light paper and the dark ground; migrating them to CSS custom properties (so they'd inherit the light/dark mechanism) remains the cleaner long-term fix.
 
 ### Living plan
 Active implementation plan: `.claude/plans/forgotten-moments-v0.plan.md`.
@@ -504,6 +510,7 @@ Active implementation plan: `.claude/plans/forgotten-moments-v0.plan.md`.
 
 Reverse-chronological log of the design sessions that shaped this document. Add a new entry at the top whenever a design session changes the spec.
 
+- **[Session 24]** **New visual identity — "Chronos Design System"** (§8 rewritten, superseding "Quiet Teal"). Clean off-white paper + a single deep-green accent (`#295E4A` light / `#4F9D7C` dark), Notion/Linear/Apple restraint; added `--surface` and semantic `--success/--warning/--error` tokens, an 18px house radius, and switched UI/body to **Inter** with **Geist** (bold) for the brand (`layout.tsx`). Token-only swap in `globals.css` — zero component changes (every utility resolves through `@theme` vars). The Living Ring category palette (`palette.ts`) was re-anchored to lead with the deep green, then muted, mutually-distinct, CVD-safe hues — chosen over the raw brief's monochrome-green ramp, which would have broken §5.2.3's distinctness/legibility rule (4 adjacent greens); gap neutrals + the forgotten amber were retuned to the new theme too. "Sleep = grey" intentionally left out of the palette (grey stays reserved for gap states). Published a light/dark preview artifact of the full system (theme, the 24h ring, palette, type, components). 277 tests green; `tsc`/`eslint`/`build` clean.
 - **[Session 23]** **Living Ring → literal 24h clock on Today (§5.2.3 revised).** The Today ring was a duration-sorted pie (largest→smallest from 12 o'clock); it's now a real clock — 00:00 at top, clockwise to 23:59, every event/gap at its true position, nothing merged or reordered. Same-category blocks appear as separate bands at their real times (same fixed color); the un-narrated night/edges become "unaccounted" wedges in place; each Forgotten Moment stays its own tappable band. New `buildDayClock` + `ringArcsClock` (absolute-position arc math, touching bands, no padding); the day tiles the circle exactly (overlaps clipped, never double-counted). The Today legend is now a chronological, start-time-tagged schedule. **Week/Month/Year are unchanged** — still the aggregate largest→smallest pie (`buildRingSegments`), since a clock can't span multiple days; the handler picks `buildDayClock` when the window is a single day, else `buildRingSegments`, and returns a `layout: 'clock' | 'aggregate'` flag the ring uses to choose geometry. Files: `src/domain/ring/segments.ts`, `src/components/ring/{geometry,LivingRing,RingSection,labels}.tsx`, `src/app/api/ring/handler.ts`. Verified on real 2026-07-04 data (13 bands tiling 1440 min, chronological). 277 tests green.
 - **[Session 22]** Added a **Google Gemini extractor** (`src/ai/gemini-extractor.ts`) — a free-tier cloud option behind the same `LifeEventExtractor` interface, using Gemini's `responseSchema` for reliable structured output (the local qwen2.5:7b was dropping times). Wired into `get-extractor.ts` (`CHRONOS_EXTRACTOR=gemini` + `GEMINI_API_KEY`, auto-picked after Claude, before Ollama); `ExtractorKind` + the review provenance badge gained `'gemini'`. Also fixed a backend RLS gap from Session 21: raw-SQL-created tables don't inherit Supabase's automatic grants, so `authenticated` had no table privileges (`permission denied for table`) — added an explicit `grant … to authenticated` migration.
 - **[Session 21]** **Accounts + real multi-user backend.** Wired the long-planned Supabase swap (§8): **Google sign-in** via Supabase Auth (`@supabase/ssr` cookie sessions) and **Postgres persistence with RLS** — `life_events` + `user_state` tables, policies `auth.uid() = user_id` (incl. `with check` on insert/update, closing the write-time ownership gap the file store never had). New Supabase repositories drop in behind the existing `LifeEventRepository`/`UserStateRepository` interfaces (request-scoped, RLS-bound); `user_state.update` uses optimistic concurrency (`updated_at` guard + retry) to replace the file store's in-process write-queue. A single `resolveDataContext()` picks Supabase-authed vs. the **file-backed dev fallback** — so with no Supabase env the app runs exactly as before (single-user, offline, no login). All handlers unchanged (they already took `userId` + repos); only the `route.ts` seam + the weekly page changed. Login/callback/signout routes + middleware guard added. The `DEV_USER_ID` → `auth.uid()` migration was indeed just a value swap. Google OAuth (Google Cloud Console + Supabase provider config) is the one hand-setup step (see README). Files: `src/lib/supabase/*`, `src/data/{data-context,supabase-*}.ts`, `src/middleware.ts`, `src/app/{login,auth/*}`, the API `route.ts` set, `settings`/`reflections/weekly` pages.
