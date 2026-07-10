@@ -25,6 +25,23 @@ export default async function LoginPage() {
       <div className="mt-8">
         <GoogleSignInButton />
       </div>
+      <p className="mx-auto mt-6 max-w-sm text-xs leading-5 text-muted">
+        By continuing you agree to the{' '}
+        <a
+          href="/terms"
+          className="underline decoration-line underline-offset-2 hover:text-accent"
+        >
+          Terms
+        </a>{' '}
+        and{' '}
+        <a
+          href="/privacy"
+          className="underline decoration-line underline-offset-2 hover:text-accent"
+        >
+          Privacy policy
+        </a>
+        .
+      </p>
     </main>
   );
 }

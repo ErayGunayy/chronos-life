@@ -64,6 +64,22 @@ export default async function SettingsPage() {
       </section>
 
       <DeleteEverythingSection />
+
+      <footer className="mt-2 text-sm text-muted">
+        <Link
+          href="/privacy"
+          className="underline decoration-line underline-offset-2 hover:text-accent"
+        >
+          Privacy
+        </Link>
+        {' · '}
+        <Link
+          href="/terms"
+          className="underline decoration-line underline-offset-2 hover:text-accent"
+        >
+          Terms
+        </Link>
+      </footer>
     </main>
   );
 }
