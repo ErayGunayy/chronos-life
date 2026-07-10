@@ -40,6 +40,7 @@ create function public.increment_ai_usage(p_date date)
 returns integer
 language sql
 security invoker
+set search_path = '' -- can't be shadowed via search_path (Supabase linter 0011)
 as $$
   insert into public.ai_usage (user_id, usage_date, count, updated_at)
   values (auth.uid(), p_date, 1, now())
