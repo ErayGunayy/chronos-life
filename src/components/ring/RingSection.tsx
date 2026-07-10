@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type {
   ForgottenSliceView,
@@ -50,26 +50,90 @@ export function RingSection({ localDate, timezone, refreshToken, onChanged, onSh
   const [period, setPeriod] = useState<RingPeriod>('today');
   const [ring, setRing] = useState<RingResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [activeSlice, setActiveSlice] = useState<ForgottenSliceView | null>(null);
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
 
   // Latest-wins guard, same as TodayApp: a stale response never overwrites.
   const fetchSequence = useRef(0);
+  // Per-period response cache so re-clicking a period is instant instead of
+  // re-hitting the network. An in-flight map dedupes a background prefetch and
+  // a click that race for the same period. Both are keyed by the data identity
+  // (date + tz + refreshToken), so a new refreshToken — the day's memories
+  // changed — is a fresh generation and nothing stale is ever served.
+  const cacheRef = useRef(new Map<string, RingResponse>());
+  const inflightRef = useRef(new Map<string, Promise<RingResponse>>());
+  const generation = `${localDate}:${timezone}:${refreshToken}`;
 
+  const loadPeriod = useCallback(
+    (target: RingPeriod): Promise<RingResponse> => {
+      const key = `${generation}:${target}`;
+      const cached = cacheRef.current.get(key);
+      if (cached) return Promise.resolve(cached);
+      const inflight = inflightRef.current.get(key);
+      if (inflight) return inflight;
+
+      const request = fetchRing(localDate, timezone, target)
+        .then((loaded) => {
+          cacheRef.current.set(key, loaded);
+          inflightRef.current.delete(key);
+          return loaded;
+        })
+        .catch((cause) => {
+          inflightRef.current.delete(key);
+          throw cause;
+        });
+      inflightRef.current.set(key, request);
+      return request;
+    },
+    [generation, localDate, timezone],
+  );
+
+  // A new generation makes every cached period stale — drop it so memory stays
+  // bounded and the next read re-fetches fresh data.
   useEffect(() => {
+    cacheRef.current = new Map();
+    inflightRef.current = new Map();
+  }, [generation]);
+
+  // Show the active period: instant from cache, otherwise fetch (latest wins).
+  useEffect(() => {
+    // Bump first so any in-flight fetch from a prior period can no longer apply,
+    // even when this run resolves synchronously from cache.
     const sequence = ++fetchSequence.current;
-    fetchRing(localDate, timezone, period).then(
+    const cached = cacheRef.current.get(`${generation}:${period}`);
+    if (cached) {
+      setRing(cached);
+      setError(null);
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    loadPeriod(period).then(
       (loaded) => {
         if (sequence !== fetchSequence.current) return;
         setRing(loaded);
         setError(null);
+        setIsLoading(false);
       },
       (cause: unknown) => {
         if (sequence !== fetchSequence.current) return;
         setError(cause instanceof Error ? cause.message : 'Something went wrong.');
+        setIsLoading(false);
       },
     );
-  }, [localDate, timezone, period, refreshToken]);
+  }, [generation, period, loadPeriod]);
+
+  // Warm the other periods in the background so the first switch is instant too.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      for (const { value } of PERIODS) {
+        if (value !== period) loadPeriod(value).catch(() => {});
+      }
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [generation, period, loadPeriod]);
 
   useEffect(() => {
     if (!activeSlice) return;
@@ -125,7 +189,12 @@ export function RingSection({ localDate, timezone, refreshToken, onChanged, onSh
         </p>
       )}
 
-      <div className="relative w-full">
+      <div
+        className={`relative w-full transition-opacity duration-300 ${
+          isLoading ? 'opacity-50' : 'opacity-100'
+        }`}
+        aria-busy={isLoading}
+      >
         <LivingRing
           segments={segments}
           layout={ring?.layout ?? 'aggregate'}
