@@ -46,11 +46,17 @@ export function segmentColor(segment: RingSegmentView): string {
 
 /**
  * Stable identity for a segment — shared by the ring's arcs and the legend so
- * hovering either one can highlight the other. `index` only breaks ties for
- * kinds that can repeat within one view (e.g. multiple same-day Forgotten
- * Moments); category and single-slice forgotten segments key on their own data.
+ * hovering either one can highlight the other, and used as the React key.
+ *
+ * On the clock layout the same category can appear several times (once per
+ * block in the day), so a band is keyed by its position — unique and stable
+ * across renders. On the aggregate layout each kind appears once, so it keys on
+ * its own data; `index` only breaks ties for repeatable kinds.
  */
 export function segmentKey(segment: RingSegmentView, index: number): string {
+  if (segment.startFraction !== undefined) {
+    return `${segment.kind}:${segment.startFraction.toFixed(5)}`;
+  }
   if (segment.kind === 'category') return `category:${segment.category}`;
   if (segment.kind === 'forgotten' && segment.slices.length === 1) {
     return `forgotten:${segment.slices[0].startAt}`;

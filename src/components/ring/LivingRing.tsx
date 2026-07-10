@@ -1,7 +1,8 @@
 'use client';
 
 import type { RingSegmentView } from '@/app/api/ring/handler';
-import { pointOnRing, ringArcs, type ArcSpec } from '@/components/ring/geometry';
+import type { RingLayout } from '@/domain/ring/segments';
+import { pointOnRing, ringArcs, ringArcsClock, type ArcSpec } from '@/components/ring/geometry';
 import { segmentColor, segmentKey, segmentLabel } from '@/components/ring/labels';
 import { formatMinutes } from '@/lib/time/duration';
 
@@ -18,6 +19,8 @@ type ForgottenSegment = Extract<RingSegmentView, { kind: 'forgotten' }>;
 
 type Props = {
   segments: readonly RingSegmentView[];
+  /** 'clock' places bands at their real 24h position; 'aggregate' packs by size. */
+  layout: RingLayout;
   centerTitle: string;
   centerSubtitle: string;
   hoveredKey: string | null;
@@ -40,6 +43,7 @@ type Props = {
  */
 export function LivingRing({
   segments,
+  layout,
   centerTitle,
   centerSubtitle,
   hoveredKey,
@@ -48,12 +52,23 @@ export function LivingRing({
   onForgottenSelect,
   onForgottenNavigate,
 }: Props) {
-  const arcs = ringArcs(
-    segments.map((segment) => segment.share),
-    CENTER,
-    CENTER,
-    RADIUS,
-  );
+  const arcs =
+    layout === 'clock'
+      ? ringArcsClock(
+          segments.map((segment) => ({
+            startFraction: segment.startFraction ?? 0,
+            endFraction: segment.endFraction ?? 0,
+          })),
+          CENTER,
+          CENTER,
+          RADIUS,
+        )
+      : ringArcs(
+          segments.map((segment) => segment.share),
+          CENTER,
+          CENTER,
+          RADIUS,
+        );
 
   const hoveredIndex = segments.findIndex(
     (segment, index) => segmentKey(segment, index) === hoveredKey,

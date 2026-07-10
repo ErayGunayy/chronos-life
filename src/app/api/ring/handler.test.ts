@@ -80,15 +80,18 @@ describe('handleRingRequest', () => {
     const { body } = await handleRingRequest({ date: DATE, tz: TZ, period: 'today' }, events, state, USER);
     const segments = body.data?.segments ?? [];
 
-    // Largest first: Learning 120m, then Routine gap 60m... wait, the 11:00–12:00 gap is exactly 60m → forgotten.
+    expect(body.data?.layout).toBe('clock');
     const learning = segments.find((s) => s.kind === 'category' && s.category === 'Learning');
     const health = segments.find((s) => s.kind === 'category' && s.category === 'Health');
     expect(learning).toMatchObject({ color: DEFAULT_CATEGORY_PALETTE[0], durationMinutes: 120 });
     expect(health).toMatchObject({ color: DEFAULT_CATEGORY_PALETTE[1], durationMinutes: 60 });
 
-    // Largest → smallest among the told activities (the 24h remainder leads).
+    // Clock order is chronological: Learning (09:00) comes before Health (12:00),
+    // each tagged with its real start time for the schedule-style legend.
     const categories = segments.filter((s) => s.kind === 'category');
     expect(categories[0]).toBe(learning);
+    expect(learning).toMatchObject({ startLabel: '09:00', endLabel: '11:00' });
+    expect(health).toMatchObject({ startLabel: '12:00', endLabel: '13:00' });
     const shareSum = segments.reduce((sum, s) => sum + s.share, 0);
     expect(shareSum).toBeCloseTo(1);
 
@@ -139,6 +142,7 @@ describe('handleRingRequest', () => {
     const { body } = await handleRingRequest({ date: DATE, tz: TZ, period: 'week' }, events, state, USER);
 
     expect(body.data?.fromDate).toBe('2026-06-26');
+    expect(body.data?.layout).toBe('aggregate');
     const forgotten = (body.data?.segments ?? []).filter((s) => s.kind === 'forgotten');
     expect(forgotten).toHaveLength(1);
     if (forgotten[0].kind !== 'forgotten') throw new Error('expected forgotten');
@@ -171,9 +175,10 @@ describe('handleRingRequest', () => {
 
     const { body } = await handleRingRequest({ date: DATE, tz: TZ, period: 'today' }, events, state, USER);
 
-    // The 24h remainder leads; remembered minutes still exclude the unremembered hour.
+    // Clock order: night, Learning 09:00–11:00, unremembered 11:00–12:00, then
+    // the rest of the day. Remembered minutes still exclude the unremembered hour.
     const kinds = (body.data?.segments ?? []).map((s) => s.kind);
-    expect(kinds).toEqual(['unaccounted', 'category', 'unremembered']);
+    expect(kinds).toEqual(['unaccounted', 'category', 'unremembered', 'unaccounted']);
     expect(body.data?.totalMinutes).toBe(1440);
     expect(body.data?.rememberedMinutes).toBe(120);
   });

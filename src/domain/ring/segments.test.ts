@@ -3,7 +3,12 @@ import { describe, expect, it } from 'vitest';
 import { createLifeEvent } from '@/domain/life-event/factory';
 import type { LifeEvent, LifeEventKind } from '@/domain/life-event/types';
 import { colorForCategoryIndex } from '@/domain/ring/palette';
-import { buildRingSegments, type RingDayInput } from '@/domain/ring/segments';
+import {
+  buildDayClock,
+  buildRingSegments,
+  type RingDayInput,
+  type RingSegment,
+} from '@/domain/ring/segments';
 
 let sequence = 0;
 
@@ -45,8 +50,17 @@ function nextDate(localDate: string): string {
 
 const COLORS = { Learning: 0, Health: 1, Family: 2 };
 
-describe('buildRingSegments — single day (§5.2.1–§5.2.3)', () => {
-  it('aggregates categories, splits gap kinds, and orders largest → smallest', () => {
+/** Every clock band should tile [0,1] exactly — no gaps, no overlaps. */
+function assertTiles(segments: readonly RingSegment[]): void {
+  expect(segments[0].startFraction).toBeCloseTo(0, 10);
+  expect(segments[segments.length - 1].endFraction).toBeCloseTo(1, 10);
+  for (let i = 1; i < segments.length; i += 1) {
+    expect(segments[i].startFraction).toBeCloseTo(segments[i - 1].endFraction ?? -1, 10);
+  }
+}
+
+describe('buildDayClock — the single-day 24h clock (§5.2)', () => {
+  it('places every event and gap at its real position, in chronological order', () => {
     // Arrange — 09:00–11:00 Learning, 30m routine pause, 11:30–12:30 Health,
     // 90m forgotten gap, 14:00–15:00 Family, 15:00–16:00 unremembered.
     const events = [
@@ -57,31 +71,34 @@ describe('buildRingSegments — single day (§5.2.1–§5.2.3)', () => {
     ];
 
     // Act
-    const ring = buildRingSegments([day('2026-07-01', events)], COLORS);
+    const ring = buildDayClock(day('2026-07-01', events), COLORS);
 
-    // Assert — the day is 24h, so the un-narrated remainder (1440 − 420 = 1020)
-    // is the largest wedge and leads; the rest still order largest → smallest.
+    // Assert — clock order is chronological, NOT largest-first: the night leads
+    // only because 00:00 comes first, then the day plays out hour by hour.
+    expect(ring.layout).toBe('clock');
     expect(ring.segments.map((segment) => [segment.kind, segment.durationMinutes])).toEqual([
-      ['unaccounted', 1020],
-      ['category', 120],
-      ['forgotten', 90],
-      ['category', 60],
-      ['category', 60],
-      ['unremembered', 60],
-      ['routine-gap', 30],
+      ['unaccounted', 540], // 00:00–09:00
+      ['category', 120], //    09:00–11:00 Learning
+      ['routine-gap', 30], //  11:00–11:30
+      ['category', 60], //     11:30–12:30 Health
+      ['forgotten', 90], //    12:30–14:00
+      ['category', 60], //     14:00–15:00 Family
+      ['unremembered', 60], // 15:00–16:00
+      ['unaccounted', 480], // 16:00–24:00
     ]);
     expect(ring.totalMinutes).toBe(1440);
 
-    const shares = ring.segments.map((segment) => segment.share);
-    expect(shares.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 10);
-
-    const learning = ring.segments.find((segment) => segment.kind === 'category');
-    if (learning?.kind !== 'category') throw new Error('expected a category segment');
+    // Midnight sits at the top (fraction 0) and the day tiles the full circle.
+    assertTiles(ring.segments);
+    const learning = ring.segments[1];
+    if (learning.kind !== 'category') throw new Error('expected a category segment');
     expect(learning.category).toBe('Learning');
     expect(learning.color).toBe(colorForCategoryIndex(0));
+    expect(learning.startFraction).toBeCloseTo(9 / 24, 10); // 09:00
+    expect(learning.endFraction).toBeCloseTo(11 / 24, 10); // 11:00
   });
 
-  it('renders each forgotten moment as its own tappable segment on a single day (§5.2.2)', () => {
+  it('renders each forgotten moment as its own tappable band (§5.2.2)', () => {
     // Arrange — two separate ≥1h gaps
     const events = [
       utcEvent({ start: '2026-07-01T08:00:00.000Z', end: '2026-07-01T09:00:00.000Z', category: 'Learning' }),
@@ -90,18 +107,19 @@ describe('buildRingSegments — single day (§5.2.1–§5.2.3)', () => {
     ];
 
     // Act
-    const ring = buildRingSegments([day('2026-07-01', events)], COLORS);
+    const ring = buildDayClock(day('2026-07-01', events), COLORS);
 
-    // Assert
+    // Assert — two breathing arcs, each one gap, at its own place on the clock.
     const forgotten = ring.segments.filter((segment) => segment.kind === 'forgotten');
     expect(forgotten).toHaveLength(2);
     for (const segment of forgotten) {
       if (segment.kind !== 'forgotten') continue;
       expect(segment.slices).toHaveLength(1);
     }
+    assertTiles(ring.segments);
   });
 
-  it('merges same-category overlaps instead of double-counting', () => {
+  it('clips overlapping same-category blocks — never double-counts, never overlaps', () => {
     // Arrange — two Learning blocks overlapping 10:00–11:00
     const events = [
       utcEvent({ start: '2026-07-01T09:00:00.000Z', end: '2026-07-01T11:00:00.000Z', category: 'Learning' }),
@@ -109,35 +127,39 @@ describe('buildRingSegments — single day (§5.2.1–§5.2.3)', () => {
     ];
 
     // Act
-    const ring = buildRingSegments([day('2026-07-01', events)], COLORS);
+    const ring = buildDayClock(day('2026-07-01', events), COLORS);
 
-    // Assert — 09:00–12:00 merged = 180, not 240
-    const learning = ring.segments.find((segment) => segment.kind === 'category');
-    expect(learning?.durationMinutes).toBe(180);
+    // Assert — 09:00–12:00 covered once (180 min total) as touching bands, not 240.
+    const categories = ring.segments.filter((segment) => segment.kind === 'category');
+    const learningMinutes = categories.reduce((sum, segment) => sum + segment.durationMinutes, 0);
+    expect(learningMinutes).toBe(180);
+    assertTiles(ring.segments);
   });
 
-  it('shows an uncategorized event as its own titled wedge, plus the day remainder', () => {
+  it('shows an uncategorized event as its own titled band, with the day around it', () => {
     const event = utcEvent({ start: '2026-07-01T09:00:00.000Z', end: '2026-07-01T10:00:00.000Z' });
-    const ring = buildRingSegments([day('2026-07-01', [event])], COLORS);
+    const ring = buildDayClock(day('2026-07-01', [event]), COLORS);
 
-    const uncategorized = ring.segments.find((segment) => segment.kind === 'uncategorized');
-    if (uncategorized?.kind !== 'uncategorized') throw new Error('expected an uncategorized segment');
+    // Leading night 00:00–09:00, the event 09:00–10:00, trailing 10:00–24:00.
+    expect(ring.segments.map((segment) => segment.kind)).toEqual([
+      'unaccounted',
+      'uncategorized',
+      'unaccounted',
+    ]);
+    const uncategorized = ring.segments[1];
+    if (uncategorized.kind !== 'uncategorized') throw new Error('expected an uncategorized segment');
     expect(uncategorized.title).toBe(event.title);
     expect(uncategorized.durationMinutes).toBe(60);
-
-    // 24h day: the untold rest of the day fills the ring, gently.
-    const unaccounted = ring.segments.find((segment) => segment.kind === 'unaccounted');
-    expect(unaccounted?.durationMinutes).toBe(1440 - 60);
     expect(ring.totalMinutes).toBe(1440);
+    assertTiles(ring.segments);
   });
 
   it('keeps each uncategorized event separate — never one anonymous blob', () => {
-    // Two uncategorized events with a ≥1h gap between them.
     const events = [
       utcEvent({ start: '2026-07-01T09:00:00.000Z', end: '2026-07-01T10:00:00.000Z' }),
       utcEvent({ start: '2026-07-01T14:00:00.000Z', end: '2026-07-01T15:00:00.000Z' }),
     ];
-    const ring = buildRingSegments([day('2026-07-01', events)], COLORS);
+    const ring = buildDayClock(day('2026-07-01', events), COLORS);
 
     const uncategorized = ring.segments.filter((segment) => segment.kind === 'uncategorized');
     expect(uncategorized).toHaveLength(2);
@@ -145,9 +167,10 @@ describe('buildRingSegments — single day (§5.2.1–§5.2.3)', () => {
   });
 
   it('returns an empty ring for an empty day — never a fake segment', () => {
-    const ring = buildRingSegments([day('2026-07-01', [])], COLORS);
+    const ring = buildDayClock(day('2026-07-01', []), COLORS);
     expect(ring.segments).toEqual([]);
     expect(ring.totalMinutes).toBe(0);
+    expect(ring.layout).toBe('clock');
   });
 });
 

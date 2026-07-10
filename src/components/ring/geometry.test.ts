@@ -5,6 +5,7 @@ import {
   SEGMENT_PADDING_DEGREES,
   pointOnRing,
   ringArcs,
+  ringArcsClock,
 } from '@/components/ring/geometry';
 
 const CX = 120;
@@ -74,5 +75,40 @@ describe('ringArcs', () => {
     const arcs = ringArcs([0.75, 0.25], CX, CY, R);
     expect(arcs[0].path).toMatch(/A 96 96 0 1 1/);
     expect(arcs[1].path).toMatch(/A 96 96 0 0 1/);
+  });
+});
+
+describe('ringArcsClock', () => {
+  test('places bands at their absolute clock position — 00:00 at the top', () => {
+    // 00:00–09:00, 09:00–11:00, 11:00–24:00 as fractions of the day.
+    const arcs = ringArcsClock(
+      [
+        { startFraction: 0, endFraction: 9 / 24 },
+        { startFraction: 9 / 24, endFraction: 11 / 24 },
+        { startFraction: 11 / 24, endFraction: 1 },
+      ],
+      CX,
+      CY,
+      R,
+    );
+
+    // Midnight is angle 0 (12 o'clock); 09:00 is 135°; no padding between bands.
+    expect(arcs[0].startAngle).toBe(0);
+    expect(arcs[1].startAngle).toBeCloseTo(135);
+    expect(arcs[0].endAngle).toBeCloseTo(arcs[1].startAngle);
+    expect(arcs[2].endAngle).toBeCloseTo(360);
+  });
+
+  test('a band spanning the whole day draws as a full circle', () => {
+    const [arc] = ringArcsClock([{ startFraction: 0, endFraction: 1 }], CX, CY, R);
+    expect(arc.startAngle).toBe(0);
+    expect(arc.endAngle).toBe(360);
+    expect(arc.path.match(/A /g)).toHaveLength(2);
+  });
+
+  test('rejects fractions outside [0,1] or that run backwards', () => {
+    expect(() => ringArcsClock([{ startFraction: -0.1, endFraction: 0.5 }], CX, CY, R)).toThrow(RangeError);
+    expect(() => ringArcsClock([{ startFraction: 0.5, endFraction: 1.5 }], CX, CY, R)).toThrow(RangeError);
+    expect(() => ringArcsClock([{ startFraction: 0.6, endFraction: 0.4 }], CX, CY, R)).toThrow(RangeError);
   });
 });

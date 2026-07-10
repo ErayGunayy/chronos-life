@@ -2,7 +2,13 @@ import type { LifeEventRepository } from '@/data/life-event-repository';
 import type { UserStateRepository } from '@/data/user-state-repository';
 import type { LifeEvent } from '@/domain/life-event/types';
 import { assignCategoryColors, categoriesInFirstSeenOrder } from '@/domain/ring/assign-colors';
-import { buildRingSegments, type RingDayInput, type RingSegment } from '@/domain/ring/segments';
+import {
+  buildDayClock,
+  buildRingSegments,
+  type RingDayInput,
+  type RingLayout,
+  type RingSegment,
+} from '@/domain/ring/segments';
 import { type ApiEnvelope, fail, ok } from '@/lib/api/envelope';
 import { addLocalDays, utcInstantOfLocalMidnight } from '@/lib/time/day-bounds';
 import { localTimeOf } from '@/lib/time/format';
@@ -33,7 +39,19 @@ export interface ForgottenSliceView {
   readonly endLabel: string;
 }
 
-export type RingSegmentView =
+/**
+ * Clock-layout positioning (§5.2): each band's place on the 24h circle plus a
+ * human start/end time for the schedule-style legend. Absent on the aggregate
+ * (period) layout, whose arcs are packed by size, not time.
+ */
+interface ClockPosition {
+  readonly startFraction?: number;
+  readonly endFraction?: number;
+  readonly startLabel?: string;
+  readonly endLabel?: string;
+}
+
+export type RingSegmentView = (
   | {
       readonly kind: 'category';
       readonly category: string;
@@ -57,10 +75,14 @@ export type RingSegmentView =
       readonly durationMinutes: number;
       readonly share: number;
       readonly slices: readonly ForgottenSliceView[];
-    };
+    }
+) &
+  ClockPosition;
 
 export interface RingResponse {
   readonly period: RingPeriod;
+  /** 'clock' = single-day 24h positions; 'aggregate' = period pie (§5.2.4). */
+  readonly layout: RingLayout;
   /** Local date the window ends on (inclusive) — the "today" anchor. */
   readonly date: string;
   /** Local date the window starts on (inclusive). */
@@ -117,25 +139,45 @@ export async function handleRingRequest(
   }));
 
   const categoryColors = await ensureCategoryColors(state, userId, windowEvents);
-  const view = buildRingSegments(days, categoryColors);
+  // A single day is a literal 24h clock; wider windows aggregate (§5.2 / §5.2.4).
+  const view =
+    days.length === 1
+      ? buildDayClock(days[0], categoryColors)
+      : buildRingSegments(days, categoryColors);
 
-  const segments: RingSegmentView[] = view.segments.map((segment) =>
-    segment.kind === 'forgotten'
+  const dayFromMs = Date.parse(days[0].fromUtc);
+  const daySpanMs = Date.parse(days[days.length - 1].toUtc) - dayFromMs;
+  const clockLabels = (segment: RingSegment): ClockPosition =>
+    view.layout === 'clock' && segment.startFraction !== undefined
       ? {
-          ...segment,
-          slices: segment.slices.map((slice) => ({
-            ...slice,
-            startLabel: localTimeOf(slice.startAt, timezone),
-            endLabel: localTimeOf(slice.endAt, timezone),
-          })),
+          startFraction: segment.startFraction,
+          endFraction: segment.endFraction,
+          startLabel: labelAtFraction(segment.startFraction, dayFromMs, daySpanMs, timezone),
+          endLabel: labelAtFraction(segment.endFraction ?? segment.startFraction, dayFromMs, daySpanMs, timezone),
         }
-      : segment,
-  );
+      : {};
+
+  const segments: RingSegmentView[] = view.segments.map((segment) => {
+    const position = clockLabels(segment);
+    if (segment.kind === 'forgotten') {
+      return {
+        ...segment,
+        ...position,
+        slices: segment.slices.map((slice) => ({
+          ...slice,
+          startLabel: localTimeOf(slice.startAt, timezone),
+          endLabel: localTimeOf(slice.endAt, timezone),
+        })),
+      };
+    }
+    return { ...segment, ...position };
+  });
 
   return {
     status: 200,
     body: ok({
       period,
+      layout: view.layout,
       date,
       fromDate,
       timezone,
@@ -144,6 +186,12 @@ export async function handleRingRequest(
       segments,
     }),
   };
+}
+
+/** Local HH:MM at a clock fraction of the day — rounded to the nearest minute. */
+function labelAtFraction(fraction: number, fromMs: number, spanMs: number, timezone: string): string {
+  const instantMs = Math.round((fromMs + fraction * spanMs) / 60_000) * 60_000;
+  return localTimeOf(new Date(instantMs).toISOString(), timezone);
 }
 
 /**

@@ -128,6 +128,7 @@ export function RingSection({ localDate, timezone, refreshToken, onChanged, onSh
       <div className="relative w-full">
         <LivingRing
           segments={segments}
+          layout={ring?.layout ?? 'aggregate'}
           centerTitle={isEmpty ? 'Unwritten' : formatMinutes(ring?.rememberedMinutes ?? 0)}
           centerSubtitle={
             isEmpty
@@ -201,6 +202,11 @@ export function RingSection({ localDate, timezone, refreshToken, onChanged, onSh
                 }`}
               >
                 <LegendSwatch segment={segment} />
+                {segment.startLabel && (
+                  <span className="shrink-0 tabular-nums text-xs text-muted">
+                    {segment.startLabel}
+                  </span>
+                )}
                 <span className="truncate">{segmentLabel(segment)}</span>
                 <span className="ml-auto shrink-0 text-xs text-muted">
                   {formatMinutes(segment.durationMinutes)}

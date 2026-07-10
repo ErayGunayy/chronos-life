@@ -1,5 +1,5 @@
 import type { LifeEvent } from '@/domain/life-event/types';
-import { detectGaps, mergedDurationMs } from '@/domain/timeline/gaps';
+import { buildDayTimeline, detectGaps, mergedDurationMs, type Gap } from '@/domain/timeline/gaps';
 import { colorForCategoryIndex } from '@/domain/ring/palette';
 
 /**
@@ -7,23 +7,22 @@ import { colorForCategoryIndex } from '@/domain/ring/palette';
  * LifeEvents — the ring stores nothing of its own and can never drift out of
  * sync with the timeline (§5.2).
  *
- * - one segment per category (fixed color, §5.2.3), largest → smallest;
- * - each event without a category becomes its own titled wedge, so nothing you
- *   record hides inside a single anonymous blob;
- * - routine (<1h) pauses collapse into one silent dark-neutral segment;
- * - unremembered records collapse into one static dashed segment — answered,
- *   so they never breathe;
- * - forgotten moments: one breathing segment per gap on a single day (each is
- *   individually fillable, §5.2.2); one combined segment across a period
- *   (§5.2.4) since a single question would not make sense there.
+ * Two layouts, chosen by scale:
  *
- * On the Today view the circle is the full 24h day (§5.2 / §5.8.4): whatever
- * the story doesn't cover becomes one calm "unaccounted" wedge (the night, the
- * hours not yet told) — an open invitation, never a judgment, and only once
- * something has been told (an empty day stays an empty ring). Aggregate periods
- * (week/month/year) omit that wedge and the circle is just the accounted time.
- * Ordering is dynamic and position is not sacred — recognizability is carried
- * by color, never by position (§5.2.3).
+ * - **Clock (single day, `buildDayClock`).** The ring is a literal 24h clock:
+ *   00:00 at the top (12 o'clock), time running clockwise to 23:59. Every event
+ *   and gap sits at its *real* position in the day, so nothing is merged or
+ *   reordered — the biggest thing is wherever it happened, not floated to the
+ *   front. Un-narrated edges (the night, hours not yet told) become calm
+ *   "unaccounted" wedges at their true position. Forgotten Moments stay one
+ *   tappable breathing arc each (§5.2.2).
+ * - **Aggregate (week/month/year, `buildRingSegments`).** A clock makes no sense
+ *   across many days, so here segments are one-per-category, summed and ordered
+ *   largest → smallest (§5.2.4); Forgotten Moments across the period combine
+ *   into one arc; there is no 24h remainder wedge (it would swamp the ring).
+ *
+ * In both layouts recognizability is carried by fixed per-category color
+ * (§5.2.3), never by position.
  */
 
 const MS_PER_MINUTE = 60_000;
@@ -49,6 +48,13 @@ interface RingSegmentBase {
   readonly durationMinutes: number;
   /** 0..1 — this segment's share of the ring. */
   readonly share: number;
+  /**
+   * Clock layout only (§5.2): this band's absolute position on the 24h circle,
+   * as fractions of the day in [0, 1] where 0 = local midnight at 12 o'clock.
+   * Undefined on the aggregate (period) layout, whose arcs are packed by size.
+   */
+  readonly startFraction?: number;
+  readonly endFraction?: number;
 }
 
 export type RingSegment =
@@ -63,12 +69,124 @@ export type RingSegment =
   | (RingSegmentBase & { readonly kind: 'unaccounted' })
   | (RingSegmentBase & { readonly kind: 'forgotten'; readonly slices: readonly ForgottenSlice[] });
 
+export type RingLayout = 'clock' | 'aggregate';
+
 export interface RingView {
-  /** Sorted largest → smallest; rendered clockwise from 12 o'clock (§5.2.3). */
   readonly segments: readonly RingSegment[];
+  /** 'clock' = single-day 24h positions; 'aggregate' = period pie (§5.2.4). */
+  readonly layout: RingLayout;
   readonly totalMinutes: number;
 }
 
+/**
+ * The single-day 24h clock (§5.2). Walks the day's chronological event/gap
+ * timeline and gives every band its true position on the circle. Overlapping
+ * or contained events never reopen already-covered time (a band is clipped to
+ * start no earlier than the previous band ends), so the whole day tiles cleanly
+ * from 00:00 to 24:00 with no gaps or double-counting.
+ */
+export function buildDayClock(
+  day: RingDayInput,
+  categoryColors: Readonly<Record<string, number>>,
+): RingView {
+  const fromMs = Date.parse(day.fromUtc);
+  const toMs = Date.parse(day.toUtc);
+  const spanMs = toMs - fromMs;
+  if (!(spanMs > 0) || day.events.length === 0) {
+    return { segments: [], layout: 'clock', totalMinutes: 0 };
+  }
+
+  // Positioned, non-overlapping bands in chronological order. `cursorMs` is the
+  // running coverage end, so a contained event clips to zero width and drops.
+  const bands: Array<{ segment: RingSegment; startMs: number; endMs: number }> = [];
+  let cursorMs = fromMs;
+
+  for (const item of buildDayTimeline(day.events)) {
+    const rawStart = item.type === 'event' ? item.event.startAt : item.gap.startAt;
+    const rawEnd = item.type === 'event' ? item.event.endAt : item.gap.endAt;
+    const startMs = Math.max(Date.parse(rawStart), cursorMs, fromMs);
+    const endMs = Math.min(Date.parse(rawEnd), toMs);
+    if (endMs <= startMs) continue;
+
+    const segment =
+      item.type === 'event'
+        ? eventBand(item.event, startMs, endMs, categoryColors)
+        : gapBand(item.gap, day.localDate, startMs, endMs);
+    bands.push({ segment, startMs, endMs });
+    cursorMs = endMs;
+  }
+
+  if (bands.length === 0) {
+    return { segments: [], layout: 'clock', totalMinutes: 0 };
+  }
+
+  // The un-narrated night/edges become their own calm wedges at their real
+  // clock position — an open invitation, never a judgment (§5.2 / §5.8.4).
+  const leadMs = bands[0].startMs - fromMs;
+  if (leadMs >= MIN_UNACCOUNTED_MINUTES * MS_PER_MINUTE) {
+    bands.unshift({
+      segment: unaccountedBand(fromMs, bands[0].startMs),
+      startMs: fromMs,
+      endMs: bands[0].startMs,
+    });
+  }
+  const lastEndMs = bands[bands.length - 1].endMs;
+  if (toMs - lastEndMs >= MIN_UNACCOUNTED_MINUTES * MS_PER_MINUTE) {
+    bands.push({ segment: unaccountedBand(lastEndMs, toMs), startMs: lastEndMs, endMs: toMs });
+  }
+
+  const segments = bands.map(({ segment, startMs, endMs }) => ({
+    ...segment,
+    share: segment.durationMinutes / (spanMs / MS_PER_MINUTE),
+    startFraction: (startMs - fromMs) / spanMs,
+    endFraction: (endMs - fromMs) / spanMs,
+  }));
+
+  return { segments, layout: 'clock', totalMinutes: spanMs / MS_PER_MINUTE };
+}
+
+function eventBand(
+  event: LifeEvent,
+  startMs: number,
+  endMs: number,
+  categoryColors: Readonly<Record<string, number>>,
+): RingSegment {
+  const base = { durationMinutes: (endMs - startMs) / MS_PER_MINUTE, share: 0 };
+  if (event.kind === 'unremembered') {
+    return { ...base, kind: 'unremembered' };
+  }
+  const category = event.category?.trim();
+  if (!category) {
+    return { ...base, kind: 'uncategorized', title: event.title };
+  }
+  return { ...base, kind: 'category', category, color: colorForCategoryIndex(categoryColors[category] ?? 0) };
+}
+
+function gapBand(gap: Gap, localDate: string, startMs: number, endMs: number): RingSegment {
+  const base = { durationMinutes: (endMs - startMs) / MS_PER_MINUTE, share: 0 };
+  if (gap.kind === 'routine') {
+    return { ...base, kind: 'routine-gap' };
+  }
+  // One tappable Forgotten Moment per gap (§5.2.2). The slice keeps the gap's
+  // real bounds so filling it in targets the right time, even if the band was
+  // clipped to the day edge for rendering.
+  return {
+    ...base,
+    kind: 'forgotten',
+    slices: [{ localDate, startAt: gap.startAt, endAt: gap.endAt, durationMinutes: gap.durationMinutes }],
+  };
+}
+
+function unaccountedBand(startMs: number, endMs: number): RingSegment {
+  return { durationMinutes: (endMs - startMs) / MS_PER_MINUTE, share: 0, kind: 'unaccounted' };
+}
+
+/**
+ * The aggregate (period) ring for week/month/year (§5.2.4): one segment per
+ * category, summed across the window and ordered largest → smallest, with all
+ * Forgotten Moments combined into a single arc. No 24h remainder wedge — a
+ * multi-day remainder is huge and says nothing useful.
+ */
 export function buildRingSegments(
   days: readonly RingDayInput[],
   categoryColors: Readonly<Record<string, number>>,
@@ -78,13 +196,10 @@ export function buildRingSegments(
   const unremembered: number[] = [];
   let routineMinutes = 0;
   const forgottenSlices: ForgottenSlice[] = [];
-  // Sum of each day's real bounds — 24h/day, but DST-correct via the bounds.
-  let periodTotalMinutes = 0;
 
   for (const day of days) {
     const fromMs = Date.parse(day.fromUtc);
     const toMs = Date.parse(day.toUtc);
-    periodTotalMinutes += (toMs - fromMs) / MS_PER_MINUTE;
 
     for (const event of day.events) {
       const clamped = clampToRange(event.startAt, event.endAt, fromMs, toMs);
@@ -162,41 +277,15 @@ export function buildRingSegments(
   }
 
   if (forgottenSlices.length > 0) {
-    if (days.length === 1) {
-      // Today view: each forgotten moment is its own tappable, breathing arc (§5.2.2).
-      for (const slice of forgottenSlices) {
-        segments.push({
-          kind: 'forgotten',
-          slices: [slice],
-          durationMinutes: slice.durationMinutes,
-          share: 0,
-        });
-      }
-    } else {
-      // Period view: one combined segment for the total unaccounted duration (§5.2.4).
-      const sorted = [...forgottenSlices].sort(
-        (a, b) => a.startAt.localeCompare(b.startAt) || a.endAt.localeCompare(b.endAt),
-      );
-      segments.push({
-        kind: 'forgotten',
-        slices: sorted,
-        durationMinutes: sorted.reduce((sum, slice) => sum + slice.durationMinutes, 0),
-        share: 0,
-      });
-    }
-  }
-
-  // The 24h ring: whatever the today story doesn't cover becomes one calm
-  // wedge. Only for the single-day (Today) view, and only once something was
-  // told — an empty day keeps its gentle empty ring. Aggregate periods
-  // (week/month/year) omit it: a multi-day remainder is huge, swamps the ring,
-  // and says nothing useful (§5.2.4).
-  if (days.length === 1 && segments.length > 0) {
-    const accountedMinutes = segments.reduce((sum, segment) => sum + segment.durationMinutes, 0);
-    const remainder = periodTotalMinutes - accountedMinutes;
-    if (remainder >= MIN_UNACCOUNTED_MINUTES) {
-      segments.push({ kind: 'unaccounted', durationMinutes: remainder, share: 0 });
-    }
+    const sorted = [...forgottenSlices].sort(
+      (a, b) => a.startAt.localeCompare(b.startAt) || a.endAt.localeCompare(b.endAt),
+    );
+    segments.push({
+      kind: 'forgotten',
+      slices: sorted,
+      durationMinutes: sorted.reduce((sum, slice) => sum + slice.durationMinutes, 0),
+      share: 0,
+    });
   }
 
   const totalMinutes = segments.reduce((sum, segment) => sum + segment.durationMinutes, 0);
@@ -209,7 +298,7 @@ export function buildRingSegments(
     (a, b) => b.durationMinutes - a.durationMinutes || segmentLabel(a).localeCompare(segmentLabel(b)),
   );
 
-  return { segments: withShares, totalMinutes };
+  return { segments: withShares, layout: 'aggregate', totalMinutes };
 }
 
 function segmentLabel(segment: RingSegment): string {
