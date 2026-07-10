@@ -1,7 +1,9 @@
 allowBuilds:
+  '@sentry/cli': false
   sharp: false
   unrs-resolver: false
 ignoredBuiltDependencies:
+  - '@sentry/cli'
   - sharp
   - unrs-resolver
 minimumReleaseAgeExclude:
