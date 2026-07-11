@@ -46,3 +46,6 @@ next-env.d.ts
 
 # local memory store (dev persistence until Supabase)
 .chronos-data/
+
+.vercel
+.env*
