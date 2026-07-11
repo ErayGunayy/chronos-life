@@ -20,14 +20,14 @@ describe('handleCategoriesRequest', () => {
     const state = new InMemoryUserStateRepository();
     await state.update(USER, (current) => ({
       ...current,
-      categoryColors: { Aile: 1, Proje: 0 },
+      categoryColors: { Family: 1, Project: 0 },
     }));
 
     const { body } = await handleCategoriesRequest(state, USER);
     const names = body.data?.categories.map((category) => category.name) ?? [];
 
-    // Proje(0) then Aile(1) lead; Aile is a default too but must appear once.
-    expect(names.slice(0, 2)).toEqual(['Proje', 'Aile']);
-    expect(names.filter((name) => name === 'Aile')).toHaveLength(1);
+    // Project(0) then Family(1) lead; Family is a default too but must appear once.
+    expect(names.slice(0, 2)).toEqual(['Project', 'Family']);
+    expect(names.filter((name) => name === 'Family')).toHaveLength(1);
   });
 });

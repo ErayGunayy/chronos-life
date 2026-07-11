@@ -80,7 +80,7 @@ export function StoryView({ day, localDate, timezone, onContinue, onChanged }: P
         {day.rememberedShare !== null && (
           <span
             className="rounded-full border border-line bg-card px-3 py-1 text-xs text-muted"
-            title="How much of your story's span is written down — coverage, never a score."
+            title="How much of the day is written down — coverage, never a score."
           >
             {Math.round(day.rememberedShare * 100)}% remembered
           </span>

@@ -73,30 +73,29 @@ export function detectGaps(events: readonly LifeEvent[]): Gap[] {
 }
 
 /**
- * Memory coverage of the day's story span — the "Remembered %" (§5.2).
- * Communicates coverage only, never quality: an unremembered record extends
- * the span (the time was accounted for) but does not count as remembered.
- * Null when there is nothing to measure — an empty day is not 0%.
+ * Memory coverage of the local calendar day — the "Remembered %" (§5.2,
+ * §5.8.4: the denominator is the fixed 24h day, never just the narrated
+ * span, so it always agrees with the Living Ring's duration). Communicates
+ * coverage only, never quality: an unremembered record accounts for its time
+ * but does not count as remembered. Events crossing midnight are clamped to
+ * the day bounds so they never over-count. Null when there is nothing to
+ * measure — an empty day is not 0%.
  */
-export function rememberedShare(events: readonly LifeEvent[]): number | null {
+export function rememberedShare(
+  events: readonly LifeEvent[],
+  dayBounds: { readonly fromUtc: string; readonly toUtc: string },
+): number | null {
   if (events.length === 0) return null;
 
-  let spanStartMs = Number.POSITIVE_INFINITY;
-  let spanEndMs = Number.NEGATIVE_INFINITY;
-  const remembered: Array<{ startMs: number; endMs: number }> = [];
+  const fromMs = Date.parse(dayBounds.fromUtc);
+  const toMs = Date.parse(dayBounds.toUtc);
+  const remembered = events
+    .filter((event) => event.kind === 'substantive')
+    .map((event) => clampToRange(event.startAt, event.endAt, fromMs, toMs))
+    .filter((interval): interval is { startMs: number; endMs: number } => interval !== null);
 
-  for (const event of events) {
-    const startMs = Date.parse(event.startAt);
-    const endMs = Date.parse(event.endAt);
-    spanStartMs = Math.min(spanStartMs, startMs);
-    spanEndMs = Math.max(spanEndMs, endMs);
-    if (event.kind === 'substantive') {
-      remembered.push({ startMs, endMs });
-    }
-  }
-
-  const spanMs = spanEndMs - spanStartMs;
-  return mergedDurationMs(remembered) / spanMs;
+  // toMs - fromMs, not a hardcoded 1440min: DST days are really 23h/25h.
+  return mergedDurationMs(remembered) / (toMs - fromMs);
 }
 
 function classifyGap(startAt: string, endAt: string, durationMs: number): Gap {
@@ -107,6 +106,21 @@ function classifyGap(startAt: string, endAt: string, durationMs: number): Gap {
     durationMinutes,
     kind: durationMinutes >= FORGOTTEN_MOMENT_THRESHOLD_MINUTES ? 'forgotten-moment' : 'routine',
   };
+}
+
+/**
+ * An event's overlap with a time range, or null when it falls outside — used
+ * to clamp midnight-crossing events to one day (shared by ring math).
+ */
+export function clampToRange(
+  startAt: string,
+  endAt: string,
+  fromMs: number,
+  toMs: number,
+): { startMs: number; endMs: number } | null {
+  const startMs = Math.max(Date.parse(startAt), fromMs);
+  const endMs = Math.min(Date.parse(endAt), toMs);
+  return endMs > startMs ? { startMs, endMs } : null;
 }
 
 /** Total covered time of possibly-overlapping intervals (shared by ring math). */

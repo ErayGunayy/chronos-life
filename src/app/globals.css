@@ -6,7 +6,8 @@
  * "Quiet Teal"). Clean off-white paper + a single deep-green accent, Notion/
  * Linear/Apple restraint: color is reserved for the ring, progress, active
  * controls and status. Inter for UI, Geist (bold) for the brand. Light is the
- * default; dark follows the OS's prefers-color-scheme below — no manual toggle.
+ * default; dark is the `.dark` class on <html>, managed by next-themes
+ * (light / dark / system, defaulting to system — see ThemeProvider).
  *
  * --question (the "unwritten time" amber) is kept in sync with
  * RING_FORGOTTEN_ACCENT in src/domain/ring/palette.ts — the same concept, used
@@ -14,6 +15,8 @@
  * can't read a TS constant), so changing one should prompt checking the other.
  */
 :root {
+  color-scheme: light;
+
   --background: #fafaf8;
   --surface: #f3f3f1; /* secondary background — grouped / inset fills */
   --card: #ffffff;
@@ -36,27 +39,32 @@
   --font-display: var(--font-geist-sans), system-ui, sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #101112;
-    --surface: #202123;
-    --card: #18191b;
-    --foreground: #f5f5f5;
-    --muted: #a7a7a7;
-    --line: #2b2c2e;
+/*
+ * Dark values live on a class (not the OS media query) so an explicit Light
+ * choice can win while the OS is dark; next-themes applies `.dark` itself
+ * when the preference — or the OS, under "system" — asks for it.
+ */
+.dark {
+  color-scheme: dark;
 
-    --accent: #4f9d7c;
-    --accent-ink: #0e1a15;
-    --accent-soft: #22352c;
+  --background: #101112;
+  --surface: #202123;
+  --card: #18191b;
+  --foreground: #f5f5f5;
+  --muted: #a7a7a7;
+  --line: #2b2c2e;
 
-    --success: #55c07a;
-    --warning: #f1a63b;
-    --error: #e06a6a;
+  --accent: #4f9d7c;
+  --accent-ink: #0e1a15;
+  --accent-soft: #22352c;
 
-    --question: #f1a63b;
-    --question-bg: #2c2417;
-    --question-line: #4a3c22;
-  }
+  --success: #55c07a;
+  --warning: #f1a63b;
+  --error: #e06a6a;
+
+  --question: #f1a63b;
+  --question-bg: #2c2417;
+  --question-line: #4a3c22;
 }
 
 @theme inline {

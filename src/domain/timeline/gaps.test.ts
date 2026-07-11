@@ -176,49 +176,73 @@ describe('buildDayTimeline', () => {
 });
 
 describe('rememberedShare', () => {
+  // The fixed local-day bounds (§5.8.4) — a plain UTC day keeps the math legible.
+  const DAY = { fromUtc: '2026-07-02T00:00:00.000Z', toUtc: '2026-07-03T00:00:00.000Z' };
+
   test('null when the day has no events yet (nothing to measure, no judgment)', () => {
-    expect(rememberedShare([])).toBeNull();
+    expect(rememberedShare([], DAY)).toBeNull();
   });
 
-  test('full coverage → 1', () => {
-    const share = rememberedShare([
-      makeEvent('2026-07-02T06:00:00.000Z', '2026-07-02T08:00:00.000Z'),
-    ]);
+  test('an event covering the whole day → 1', () => {
+    const share = rememberedShare(
+      [makeEvent('2026-07-02T00:00:00.000Z', '2026-07-03T00:00:00.000Z')],
+      DAY,
+    );
 
     expect(share).toBe(1);
   });
 
-  test('partially covered story span → covered minutes over span minutes', () => {
-    const share = rememberedShare([
-      makeEvent('2026-07-02T06:00:00.000Z', '2026-07-02T07:00:00.000Z'),
-      makeEvent('2026-07-02T07:30:00.000Z', '2026-07-02T08:00:00.000Z'),
-    ]);
+  test('denominator is the fixed 24h day, not the narrated span (§5.8.4)', () => {
+    const share = rememberedShare(
+      [
+        makeEvent('2026-07-02T06:00:00.000Z', '2026-07-02T07:00:00.000Z'),
+        makeEvent('2026-07-02T07:30:00.000Z', '2026-07-02T08:00:00.000Z'),
+      ],
+      DAY,
+    );
 
-    // Span 06:00–08:00 = 120min; covered 60 + 30 = 90 → 0.75
-    expect(share).toBe(0.75);
+    // Covered 60 + 30 = 90min of the 1440min day — never 90/120 of the span.
+    expect(share).toBeCloseTo(90 / 1440, 10);
   });
 
   test('overlapping events are not double-counted', () => {
-    const share = rememberedShare([
-      makeEvent('2026-07-02T06:00:00.000Z', '2026-07-02T07:00:00.000Z'),
-      makeEvent('2026-07-02T06:30:00.000Z', '2026-07-02T07:00:00.000Z'),
-      makeEvent('2026-07-02T07:00:00.000Z', '2026-07-02T08:00:00.000Z'),
-    ]);
+    const share = rememberedShare(
+      [
+        makeEvent('2026-07-02T06:00:00.000Z', '2026-07-02T07:00:00.000Z'),
+        makeEvent('2026-07-02T06:30:00.000Z', '2026-07-02T07:00:00.000Z'),
+        makeEvent('2026-07-02T07:00:00.000Z', '2026-07-02T08:00:00.000Z'),
+      ],
+      DAY,
+    );
 
-    expect(share).toBe(1);
+    // Merged coverage 06:00–08:00 = 120min of the 1440min day.
+    expect(share).toBeCloseTo(120 / 1440, 10);
   });
 
-  test('unremembered time extends the story span but does not count as remembered', () => {
-    const share = rememberedShare([
-      makeEvent('2026-07-02T06:00:00.000Z', '2026-07-02T07:00:00.000Z'),
-      makeEvent('2026-07-02T07:00:00.000Z', '2026-07-02T08:00:00.000Z', {
-        kind: 'unremembered',
-        title: undefined,
-        source: 'gap-fill',
-      }),
-    ]);
+  test('unremembered time does not count as remembered', () => {
+    const share = rememberedShare(
+      [
+        makeEvent('2026-07-02T06:00:00.000Z', '2026-07-02T07:00:00.000Z'),
+        makeEvent('2026-07-02T07:00:00.000Z', '2026-07-02T08:00:00.000Z', {
+          kind: 'unremembered',
+          title: undefined,
+          source: 'gap-fill',
+        }),
+      ],
+      DAY,
+    );
 
-    // Span 06:00–08:00; only the first hour is a remembered memory.
-    expect(share).toBe(0.5);
+    // Only the first hour is a remembered memory.
+    expect(share).toBeCloseTo(60 / 1440, 10);
+  });
+
+  test('an event crossing midnight is clamped to the day bounds', () => {
+    const share = rememberedShare(
+      [makeEvent('2026-07-01T22:00:00.000Z', '2026-07-02T02:00:00.000Z')],
+      DAY,
+    );
+
+    // Only the 00:00–02:00 part belongs to this day.
+    expect(share).toBeCloseTo(120 / 1440, 10);
   });
 });

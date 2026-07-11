@@ -7,19 +7,20 @@
  */
 
 /**
- * Turkish seed shown before the user has categories of their own — matches the
- * language the AI extractor produces (categories are kept in the narrator's
- * language), so a fresh list reads consistently with what capture generates.
+ * Neutral English seed shown before the user has categories of their own.
+ * Chips are pure convenience — categories stay free-form, and the extractor
+ * keeps whatever language the narrator actually uses, so the user's own
+ * categories take over this list as soon as they exist.
  */
 export const DEFAULT_CATEGORIES: readonly string[] = [
-  'İş',
-  'Öğrenme',
-  'Sağlık',
-  'Aile',
-  'Sosyal',
-  'Dinlenme',
-  'Ev',
-  'Spor',
+  'Work',
+  'Learning',
+  'Health',
+  'Family',
+  'Social',
+  'Rest',
+  'Home',
+  'Sport',
 ];
 
 export interface CategorySuggestion {

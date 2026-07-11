@@ -85,7 +85,7 @@ export async function handleDayRequest(
     body: ok({
       date,
       timezone,
-      rememberedShare: rememberedShare(events),
+      rememberedShare: rememberedShare(events, bounds),
       segments,
       invite: buildForgottenMomentsInvite(detectGaps(events), timezone),
     }),

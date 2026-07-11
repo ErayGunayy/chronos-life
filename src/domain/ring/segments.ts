@@ -1,5 +1,11 @@
 import type { LifeEvent } from '@/domain/life-event/types';
-import { buildDayTimeline, detectGaps, mergedDurationMs, type Gap } from '@/domain/timeline/gaps';
+import {
+  buildDayTimeline,
+  clampToRange,
+  detectGaps,
+  mergedDurationMs,
+  type Gap,
+} from '@/domain/timeline/gaps';
 import { colorForCategoryIndex } from '@/domain/ring/palette';
 
 /**
@@ -303,17 +309,6 @@ export function buildRingSegments(
 
 function segmentLabel(segment: RingSegment): string {
   return segment.kind === 'category' ? `category:${segment.category}` : segment.kind;
-}
-
-function clampToRange(
-  startAt: string,
-  endAt: string,
-  fromMs: number,
-  toMs: number,
-): { startMs: number; endMs: number } | null {
-  const startMs = Math.max(Date.parse(startAt), fromMs);
-  const endMs = Math.min(Date.parse(endAt), toMs);
-  return endMs > startMs ? { startMs, endMs } : null;
 }
 
 function sumMs(durations: readonly number[]): number {

@@ -11,11 +11,11 @@ describe('buildCategorySuggestions', () => {
   });
 
   it('lists known categories first, ordered by palette index, then the defaults', () => {
-    const suggestions = buildCategorySuggestions({ Kitap: 1, Proje: 0 });
+    const suggestions = buildCategorySuggestions({ Books: 1, Project: 0 });
 
     expect(suggestions.slice(0, 2)).toEqual([
-      { name: 'Proje', colorIndex: 0 },
-      { name: 'Kitap', colorIndex: 1 },
+      { name: 'Project', colorIndex: 0 },
+      { name: 'Books', colorIndex: 1 },
     ]);
     expect(suggestions.slice(2).map((suggestion) => suggestion.name)).toEqual([
       ...DEFAULT_CATEGORIES,
@@ -23,9 +23,9 @@ describe('buildCategorySuggestions', () => {
   });
 
   it('does not duplicate a default that is already a known category', () => {
-    const suggestions = buildCategorySuggestions({ Spor: 0 });
+    const suggestions = buildCategorySuggestions({ Sport: 0 });
 
-    expect(suggestions.filter((suggestion) => suggestion.name === 'Spor')).toHaveLength(1);
-    expect(suggestions[0]).toEqual({ name: 'Spor', colorIndex: 0 });
+    expect(suggestions.filter((suggestion) => suggestion.name === 'Sport')).toHaveLength(1);
+    expect(suggestions[0]).toEqual({ name: 'Sport', colorIndex: 0 });
   });
 });

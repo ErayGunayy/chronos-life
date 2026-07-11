@@ -17,7 +17,7 @@ type Props = {
 
 /**
  * Preset category chips for the review step (§5.2): click to pick instead of
- * typing, with "+ Yeni" to add one. Chips echo the ring's colors for known
+ * typing, with "+ New" to add one. Chips echo the ring's colors for known
  * categories. Selecting is a deliberate human choice — the caller records that
  * as full confidence.
  */
@@ -75,7 +75,7 @@ export function CategoryPicker({ selected, suggestions, onSelect, onCreate }: Pr
               setIsAdding(false);
             }
           }}
-          placeholder="Yeni kategori"
+          placeholder="New category"
           aria-label="New category name"
           className="w-32 rounded-full border border-accent bg-card px-2.5 py-1 text-xs text-foreground focus:outline-none"
         />
@@ -85,7 +85,7 @@ export function CategoryPicker({ selected, suggestions, onSelect, onCreate }: Pr
           onClick={() => setIsAdding(true)}
           className="rounded-full border border-dashed border-line px-2.5 py-1 text-xs text-muted transition-colors hover:border-accent hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
-          + Yeni
+          + New
         </button>
       )}
     </div>

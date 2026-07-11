@@ -61,7 +61,8 @@ describe('handleDayRequest', () => {
       durationMinutes: 180,
     });
 
-    expect(body.data?.rememberedShare).toBeCloseTo(0.4);
+    // Two 1h memories over the fixed 24h day (§5.8.4) — never over the narrated span.
+    expect(body.data?.rememberedShare).toBeCloseTo(120 / 1440, 10);
     expect(body.data?.invite?.message).toContain('10:00–13:00');
   });
 
